@@ -18,10 +18,13 @@ interface Manifest {
   version?: string
   dsh?: { bundle?: { patch?: string } }
   exports?: Record<string, unknown>
+  dependencies?: Record<string, string>
 }
 
 interface Row {
   id?: string
+  name?: string
+  config?: Record<string, unknown>
 }
 
 /** Rows anywhere in a parsed entry list, including inside insert lists. */
@@ -29,6 +32,20 @@ function rows(entries: unknown): Row[] {
   if (!Array.isArray(entries)) return []
   return entries.flatMap((entry: { insert?: unknown } & Row) => entry.insert === undefined ? [entry] : rows(entry.insert))
 }
+
+/** Top-level patch entries that change an existing row, as opposed to insert lists. */
+function targeted(entries: unknown): Row[] {
+  return Array.isArray(entries) ? entries.filter((entry: { insert?: unknown }) => entry.insert === undefined) as Row[] : []
+}
+
+/** Rows this patch adds through insert lists. */
+function inserted(entries: unknown): Row[] {
+  return Array.isArray(entries)
+    ? entries.flatMap((entry: { insert?: unknown }) => entry.insert === undefined ? [] : rows(entry.insert))
+    : []
+}
+
+const loadPatch = (path: string): unknown => yaml.load(readFileSync(path, 'utf8'), { schema: entryListSchema })
 
 describe('VibeDev defaults bundle', () => {
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as Manifest
@@ -42,8 +59,7 @@ describe('VibeDev defaults bundle', () => {
   })
 
   it('disables every DeepSeek upload and states the VibeDev identity', () => {
-    const parsed = yaml.load(readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'), { schema: entryListSchema })
-    expect(parsed).toEqual([
+    expect(targeted(loadPatch(resolve(root, 'cordis.patch.yml'))).slice(0, 4)).toEqual([
       { id: 'session-log-deepseek', disabled: true },
       { id: 'plugin-package-inventory-deepseek', disabled: true },
       { id: 'session-telemetry-otel', disabled: true },
@@ -54,9 +70,24 @@ describe('VibeDev defaults bundle', () => {
     ])
   })
 
-  it('only targets rows that dsh-base defines, so no patch is dropped with a warning', () => {
-    const defined = new Set(rows(yaml.load(readFileSync(basePatch, 'utf8'), { schema: entryListSchema })).map(row => row.id))
-    const parsed = yaml.load(readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8'), { schema: entryListSchema })
-    expect(rows(parsed).map(row => row.id).filter(id => !defined.has(id))).toEqual([])
+  it('replaces the DeepSeek account and its models with the VibeDev account and gateway models', () => {
+    const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
+    expect(targeted(parsed).slice(4)).toEqual([
+      { id: 'deepseek-account', disabled: true },
+      { id: 'llm-deepseek-account', disabled: true },
+    ])
+    const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'deepseek-account')
+    expect(inserted(parsed)).toEqual([
+      { id: 'vibedev-account', name: '@vibedev/dsh-account', config: { desktopPlatform: upstream?.config?.desktopPlatform } },
+      { id: 'llm-vibedev-gateway', name: '@vibedev/dsh-llm-gateway' },
+    ])
+    expect(manifest.dependencies).toEqual({ '@vibedev/dsh-account': 'workspace:*', '@vibedev/dsh-llm-gateway': 'workspace:*' })
+  })
+
+  it('changes only rows that dsh-base defines and inserts only new ones, so no patch is dropped with a warning', () => {
+    const defined = new Set(rows(loadPatch(basePatch)).map(row => row.id))
+    const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
+    expect(targeted(parsed).map(row => row.id).filter(id => !defined.has(id))).toEqual([])
+    expect(inserted(parsed).map(row => row.id).filter(id => defined.has(id))).toEqual([])
   })
 })

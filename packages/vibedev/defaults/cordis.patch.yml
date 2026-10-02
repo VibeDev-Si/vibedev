@@ -19,3 +19,23 @@
   config:
     includeHarnessIdentity: false
     personaPrefix: 'You are an AI agent running in VibeDev.'
+
+# Sign-in is a VibeDev account on our gateway (authorization code + PKCE, app
+# tokens), not a DeepSeek account. The DeepSeek account models go with it: their
+# requests need a DeepSeek account token, which the VibeDev account never hands
+# out for a non-gateway address.
+- id: deepseek-account
+  disabled: true
+
+- id: llm-deepseek-account
+  disabled: true
+
+- insert:
+    - id: vibedev-account
+      name: '@vibedev/dsh-account'
+      config:
+        desktopPlatform: !!js "ctx.get('profileContext')?.name === 'desktop' && ['darwin', 'win32'].includes(process.platform) ? process.platform : null"
+    # The gateway's models take the account channel the DeepSeek account models
+    # left, so pickers list them first and the sign-in and top-up prompts apply.
+    - id: llm-vibedev-gateway
+      name: '@vibedev/dsh-llm-gateway'

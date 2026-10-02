@@ -20,6 +20,10 @@
     "lib/types/**/*.d.ts"
   ],
   "license": "UNLICENSED",
+  "dependencies": {
+    "@vibedev/dsh-account": "workspace:*",
+    "@vibedev/dsh-llm-gateway": "workspace:*"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"
   },
