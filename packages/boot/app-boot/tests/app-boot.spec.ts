@@ -1268,7 +1268,7 @@ describe('boot', () => {
 
 describe('addHarnessSourceSection', () => {
   const SOURCE_ROOT = `${sep}opt${sep}harness-src`
-  const EXPECTED = `The VibeDev implementation checkout (a DeepSeek Harness distribution, so its packages are named @deepseek-ai/dsh-*) is at ${SOURCE_ROOT}. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend VibeDev itself.`
+  const EXPECTED = `The VibeDev implementation checkout (its packages keep their upstream @deepseek-ai/dsh-* names) is at ${SOURCE_ROOT}. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend VibeDev itself.`
 
   it('distinguishes the source path from the current workdir after reusable instructions', async () => {
     const ctx = new Context()

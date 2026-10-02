@@ -157,6 +157,8 @@ export class GatewayAdapter extends LlmAdapter {
 
   private modelOf(snapshot: GatewaySnapshot, provider: string, id: string): { model: Model<Api>; catalog: GatewayModel } {
     this.assertOwned(provider)
+    // No catalog yet means no credential yet: the model the session names is fine, the account is missing.
+    if (snapshot.catalog.length === 0) throw new LlmError('Sign in to VibeDev to use these models.', 'ACCOUNT_SIGN_IN_REQUIRED')
     const catalog = snapshot.byId.get(id)
     const model = snapshot.models.getModel(provider, id)
     if (catalog === undefined || model === undefined) throw new LlmError(`VibeDev has no model "${id}"`, 'UNKNOWN_MODEL')

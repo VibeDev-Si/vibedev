@@ -54,6 +54,11 @@ export interface Config {
   catalogTimeoutMs: number
   /** Prompt-cache retention requested from providers that support it. */
   cacheRetention: 'none' | 'short' | 'long'
+  /**
+   * Models listed first, in this order, when the catalog offers them. The first one is what a
+   * fresh sign-in selects, since the session controller picks the channel's first model.
+   */
+  preferredModels: string[]
 }
 
 export const Config = Schema.object({
@@ -63,7 +68,20 @@ export const Config = Schema.object({
   catalogRefreshMinutes: Schema.number().min(1).max(1440).default(30),
   catalogTimeoutMs: Schema.number().min(1000).max(120_000).default(20_000),
   cacheRetention: Schema.union([Schema.const('none'), Schema.const('short'), Schema.const('long')]).default('short'),
+  preferredModels: Schema.array(Schema.string()).default(['deepseek-v4-flash']),
 })
+
+/**
+ * The catalog with the preferred models first, in their configured order, and the rest in catalog order.
+ * @param models - the parsed catalog.
+ * @param preferred - model ids to list first.
+ * @returns the reordered catalog.
+ */
+export function preferredFirst(models: readonly GatewayModel[], preferred: readonly string[]): GatewayModel[] {
+  const rank = new Map(preferred.map((id, index) => [id, index]))
+  const first = models.filter(model => rank.has(model.id)).sort((left, right) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0))
+  return [...first, ...models.filter(model => !rank.has(model.id))]
+}
 
 /** Strip trailing slashes so `<origin>/v1/...` never doubles one. */
 function originOf(config: Config): string {
@@ -118,7 +136,7 @@ export function apply(ctx: Context, config: Config): void {
             await ctx.get('deepseekAccount')?.rejectToken(credential.token)
           }
           if (!response.ok) throw new Error(`gateway catalog answered HTTP ${response.status}`)
-          next = parseCatalog(await response.json())
+          next = preferredFirst(parseCatalog(await response.json()), config.preferredModels)
         }
         const key = JSON.stringify(next)
         if (disposed || key === catalogKey) return

@@ -34,7 +34,7 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 
 | Package | Role | Wired in |
 |---|---|---|
-| `@vibedev/dsh-defaults` | Last layer of every dsh-base profile: no session-log, plugin-inventory, or telemetry uploads to DeepSeek; VibeDev identity in the system prompt; the VibeDev account and gateway models replace the DeepSeek account and its models | `PROFILE_TEMPLATES` (acp, web, headless, sdk) |
+| `@vibedev/dsh-defaults` | Last layer of every dsh-base profile: no session-log, plugin-inventory, or telemetry uploads to DeepSeek; VibeDev identity in the system prompt; the VibeDev account and gateway models replace the DeepSeek account and its models; new sessions default to the gateway's `deepseek-v4-flash` (interim choice) | `PROFILE_TEMPLATES` (acp, web, headless, sdk) |
 | `@vibedev/dsh-web-defaults` | Last layer of the web/desktop profile: no product analytics, no session-log upload toggle, DeepSeek brand off, VibeDev brand on, Web port 3180 | `PROFILE_TEMPLATES.web` |
 | `@vibedev/dsh-client-brand` | VibeDev glyph and name in the sidebar and blank-session hero slots | inserted by `@vibedev/dsh-web-defaults` |
 | `@vibedev/dsh-account` | Account provider for `ctx.deepseekAccount`: `/vibedev-link` authorization code + PKCE, app tokens with rotating refresh tokens (gateway spec `DSH-GATEWAY-APP-TOKEN-SPEC-1002.md`) | Inserted by `@vibedev/dsh-defaults` as `vibedev-account`; `deepseek-account` is disabled |

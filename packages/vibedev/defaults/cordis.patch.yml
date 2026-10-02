@@ -30,6 +30,14 @@
 - id: llm-deepseek-account
   disabled: true
 
+# New sessions start on a gateway model rather than the DeepSeek API-key route,
+# which needs a key nobody has configured. Interim choice: the cheap, fast,
+# vision-capable DeepSeek V4 Flash on the gateway.
+- id: agent-default-model
+  config:
+    provider: deepseek-account
+    model: deepseek-v4-flash
+
 - insert:
     - id: vibedev-account
       name: '@vibedev/dsh-account'

@@ -75,6 +75,7 @@ describe('VibeDev defaults bundle', () => {
     expect(targeted(parsed).slice(4)).toEqual([
       { id: 'deepseek-account', disabled: true },
       { id: 'llm-deepseek-account', disabled: true },
+      { id: 'agent-default-model', config: { provider: 'deepseek-account', model: 'deepseek-v4-flash' } },
     ])
     const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'deepseek-account')
     expect(inserted(parsed)).toEqual([

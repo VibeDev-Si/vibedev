@@ -1061,6 +1061,6 @@ export function addHarnessSourceSection(ctx: Context, sourceRoot: string): (() =
   return systemPrompt.section({
     name: HARNESS_SOURCE_SECTION,
     order: systemPrompt.getSectionOrder('HARNESS_SOURCE'),
-    text: `The VibeDev implementation checkout (a DeepSeek Harness distribution, so its packages are named @deepseek-ai/dsh-*) is at ${sourceRoot}. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend VibeDev itself.`,
+    text: `The VibeDev implementation checkout (its packages keep their upstream @deepseek-ai/dsh-* names) is at ${sourceRoot}. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend VibeDev itself.`,
   })
 }

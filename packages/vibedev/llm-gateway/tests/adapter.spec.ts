@@ -135,6 +135,21 @@ describe('GatewayAdapter', () => {
     expect(rejected).toEqual([])
   })
 
+  it('asks for sign-in, not an unknown model, while the catalog is still empty', async () => {
+    const gateway = await gatewayDouble(CATALOG)
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    const adapter = new GatewayAdapter({
+      provider: PROVIDER, displayName: 'VibeDev', origin: () => gateway.url, catalog: () => [],
+      resolveCredential: () => Promise.resolve(undefined),
+    })
+    ctx.llm.registerAdapter([PROVIDER], adapter)
+    await expect(adapter.resolveModel(PROVIDER, 'deepseek-v4-flash')).rejects.toMatchObject({ code: 'ACCOUNT_SIGN_IN_REQUIRED' })
+    const { finish } = await run(ctx, { model: 'deepseek-v4-flash' })
+    expect(finish).toMatchObject({ kind: 'error', failure: { code: 'ACCOUNT_SIGN_IN_REQUIRED' } })
+    expect(gateway.requests).toEqual([])
+  })
+
   it('asks for sign-in before any network request when there is no credential', async () => {
     const { ctx, gateway } = await bench([], null)
     const { finish } = await run(ctx, { model: 'deepseek-v4-flash' })

@@ -4,11 +4,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import * as Gateway from '../src/index.ts'
+import { parseCatalog } from '../src/catalog.ts'
 import { CATALOG, closeGatewayDoubles, gatewayDouble } from './gateway-double.ts'
 
 afterEach(async () => {
   vi.unstubAllEnvs()
   await closeGatewayDoubles()
+})
+
+describe('preferredFirst', () => {
+  it('lists the preferred models first in their order and keeps the rest in catalog order', () => {
+    const models = parseCatalog(CATALOG)
+    expect(Gateway.preferredFirst(models, ['deepseek-v4-flash', 'missing', 'gpt-5.5']).map(model => model.id))
+      .toEqual(['deepseek-v4-flash', 'gpt-5.5', 'claude-opus-5-5', 'glm-5.3'])
+    expect(Gateway.preferredFirst(models, []).map(model => model.id)).toEqual(models.map(model => model.id))
+  })
 })
 
 describe('llm-vibedev-gateway plugin', () => {
@@ -20,7 +30,7 @@ describe('llm-vibedev-gateway plugin', () => {
     await ctx.plugin(Gateway, Gateway.Config({ gatewayOrigin: `${gateway.url}/`, apiKeyEnv: 'VIBEDEV_TEST_GATEWAY_KEY' }))
     await vi.waitFor(async () => {
       const listed = await ctx.llm.listModels(Gateway.PROVIDER)
-      expect(listed.map(model => model.id)).toEqual(['claude-opus-5-5', 'gpt-5.5', 'deepseek-v4-flash', 'glm-5.3'])
+      expect(listed.map(model => model.id)).toEqual(['deepseek-v4-flash', 'claude-opus-5-5', 'gpt-5.5', 'glm-5.3'])
     })
     expect(gateway.catalogRequests[0]?.headers.authorization).toBe('Bearer sk-exempt-dev')
     await ctx.fiber.dispose()
