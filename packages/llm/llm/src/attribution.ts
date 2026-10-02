@@ -38,9 +38,10 @@ export interface AppIdentity {
  * can suppress attribution entirely.
  */
 export const APP_IDENTITY: AppIdentity = {
-  product: 'deepseek-harness',
+  // VibeDev fork: requests identify VibeDev, not DeepSeek Harness.
+  product: 'vibedev-app',
   version,
-  url: 'https://github.com/deepseek-ai/deepseek-harness',
+  url: 'https://vibedev.jzsaas.com',
 }
 
 /**

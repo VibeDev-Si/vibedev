@@ -1,6 +1,6 @@
-DeepSeek Harness
-DeepSeek Harness
-Welcome to DeepSeek Harness
-Build potential. Explore intelligence.
+VibeDev
+VibeDev
+Welcome to VibeDev
+Code and create with AI.
 Sign in
 Add API Key

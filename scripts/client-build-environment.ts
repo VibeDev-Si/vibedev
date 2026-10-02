@@ -19,7 +19,8 @@ export const CLIENT_BUILD_PROFILE_SELECTOR = 'DSH_BUILD_CLIENT_PROFILE'
 /** Public client environment required by official DSH artifacts. */
 const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
   DSH_CLIENT_BUILD_PROFILE: 'official',
-  DSH_CLIENT_TITLE: 'DeepSeek Harness',
+  // VibeDev fork: the official build is titled VibeDev; the DeepSeek brand row is disabled by @vibedev/dsh-web-defaults.
+  DSH_CLIENT_TITLE: 'VibeDev',
 } as const
 
 /** Public variable carrying the source commit embedded in client artifacts. */

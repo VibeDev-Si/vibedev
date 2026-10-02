@@ -24,7 +24,7 @@ function fixture() {
   const resources = join(application, ...platform === 'darwin' ? ['Contents', 'Resources'] : ['resources'])
   const cli = join(resources, 'runtime', 'cli')
   prepareDesktopCli(cli, platform)
-  const electron = join(application, ...platform === 'darwin' ? ['Contents', 'MacOS', 'DeepSeek Harness'] : ['DeepSeek Harness.exe'])
+  const electron = join(application, ...platform === 'darwin' ? ['Contents', 'MacOS', 'VibeDev Next'] : ['VibeDev Next.exe'])
   mkdirSync(dirname(electron), { recursive: true })
   if (platform === 'win32') copyFileSync(process.execPath, electron)
   else symlinkSync(process.execPath, electron)
@@ -39,7 +39,7 @@ function fixture() {
     'process.exitCode = 23',
     '',
   ].join('\n'))
-  const command = join(cli, 'bin', platform === 'win32' ? 'dsh.cmd' : 'dsh')
+  const command = join(cli, 'bin', platform === 'win32' ? 'vibedev-app.cmd' : 'vibedev-app')
   function start(args: string[], executable = command) {
     // cmd fixture inputs contain no metacharacters; POSIX cases exercise literal expansion characters separately.
     const child = platform === 'win32'

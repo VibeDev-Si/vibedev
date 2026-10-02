@@ -3,11 +3,11 @@
     "label": "Check for Updates…"
   },
   {
-    "label": "Manage dsh Command…"
+    "label": "Manage vibedev-app Command…"
   },
   {
     "role": "hide",
-    "label": "Hide DeepSeek Harness"
+    "label": "Hide VibeDev"
   },
   {
     "role": "hideOthers",
@@ -19,6 +19,6 @@
   },
   {
     "role": "quit",
-    "label": "Quit DeepSeek Harness"
+    "label": "Quit VibeDev"
   }
 ]

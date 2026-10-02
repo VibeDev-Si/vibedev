@@ -74,5 +74,6 @@ export async function defaultWorkspaceDirectory(
   }
   directory = validateDocumentsDirectory(directory, platform)
   signal.throwIfAborted()
-  return paths.join(directory, 'deepseek-harness', DEFAULT_WORKSPACE_DIRECTORY)
+  // VibeDev fork: Documents/VibeDev instead of Documents/deepseek-harness.
+  return paths.join(directory, 'VibeDev', DEFAULT_WORKSPACE_DIRECTORY)
 }

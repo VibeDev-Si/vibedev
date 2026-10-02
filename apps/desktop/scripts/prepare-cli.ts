@@ -9,7 +9,8 @@ import { join } from 'node:path'
  * @param platform - Target Desktop operating system.
  */
 export function prepareDesktopCli(destination: string, platform: 'darwin' | 'win32'): void {
-  const name = platform === 'win32' ? 'dsh.cmd' : 'dsh'
+  // VibeDev fork: the public command is `vibedev-app`, so an installed DeepSeek Harness keeps `dsh`.
+  const name = platform === 'win32' ? 'vibedev-app.cmd' : 'vibedev-app'
   const command = join(destination, 'bin', name)
   mkdirSync(join(destination, 'bin'), { recursive: true })
   copyFileSync(join(import.meta.dirname, '..', 'cli', name), command)
