@@ -1,8 +1,7 @@
 {
   "name": "@vibedev/dsh-defaults",
   "description": "VibeDev product defaults over dsh-base: no data uploads to DeepSeek, and the model is told it runs in VibeDev",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0-rc.2",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

@@ -1,8 +1,7 @@
 {
   "name": "@vibedev/dsh-account",
   "description": "VibeDev account provider for the DSH account seam: browser PKCE sign-in to the VibeDev gateway with app tokens",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0-rc.2",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

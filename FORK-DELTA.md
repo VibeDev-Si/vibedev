@@ -7,7 +7,9 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 - **Upstream base:** `dsh-v0.2.0-rc.2` (`639ed01539`). Remote `upstream` tracks deepseek-ai/deepseek-harness.
 - **Keep upstream identities that plugins depend on:** the `@deepseek-ai/*` package names, the runtime version, `DSH_*`
   variables, bundle row ids, the session format, and project-local `.dsh/` directories.
-- **Put VibeDev features in new packages** under `packages/vibedev/*`: private `@vibedev/*` packages shipped inside the app.
+- **Put VibeDev features in new packages** under `packages/vibedev/*`: `@vibedev/*` packages packed into the app with the
+  dsh release family and never published to npm. They carry the dsh family version (`0.2.0-rc.2` now), so an upstream merge
+  that moves the root version must move theirs too, or `release:pack` refuses the family.
 - **Override upstream bundle rows from our bundles.** Never edit `packages/bundle/*/cordis.patch.yml`; upstream adds rows to
   them in almost every release.
 - **Every change to an upstream file gets a row below,** so each upstream merge can re-check it.
@@ -45,7 +47,8 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | `apps/cli/package.json` | Depends on `@vibedev/dsh-defaults` and `@vibedev/dsh-web-defaults` | Bundles resolve from the installation | No |
 | `tsconfig.host.json` | References the host-side `packages/vibedev/*` packages | Host typecheck and build | No |
 | `tsconfig.client.json` | References `packages/vibedev/client-brand` | Client typecheck and build | No |
-| `scripts/check-workspace-constraints.ts` | `packages/vibedev/*` are not release members (must be private) | Fork packages are shipped inside the app, never published | No |
+| `scripts/check-workspace-constraints.ts` | `packages/vibedev/*` are not npm release members: they must use the `@vibedev` scope, must not be private, and omit `publishConfig` | Packed into the app, never published | No |
+| `scripts/release/families.ts` | The dsh family accepts `@vibedev/*` names | `release:pack` (and so Desktop packaging) includes the VibeDev packages; we never run `release:publish` | No |
 | `apps/desktop/src/main.ts` | `DSH_HOME` defaults to `~/.vibedev-app`; About name "VibeDev"; OS scheme `vibedev-app://` | Run alongside an installed DeepSeek Harness; brand | Partly: a build-time home/scheme option |
 | `apps/desktop-host/src/index.ts` | Host port 19487 | Run alongside an installed DeepSeek Harness | Partly: a configurable port |
 | `apps/desktop/scripts/electron-builder-config.mjs` | Product name, scheme, artifact names, `extraMetadata.name`; one macOS `extendInfo` | Identity; upstream declared `extendInfo` twice, so `CFBundleLocalizations` was dropped | The `extendInfo` fix: yes |

@@ -9,10 +9,13 @@ import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const basePatch = resolve(root, '../../bundle/base/cordis.patch.yml')
+/** The dsh family version every packed member shares. */
+const rootVersion = (JSON.parse(readFileSync(resolve(root, '../../../package.json'), 'utf8')) as { version: string }).version
 
 interface Manifest {
   name?: string
   private?: boolean
+  version?: string
   dsh?: { bundle?: { patch?: string } }
   exports?: Record<string, unknown>
 }
@@ -30,9 +33,10 @@ function rows(entries: unknown): Row[] {
 describe('VibeDev defaults bundle', () => {
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as Manifest
 
-  it('is a private fork bundle that declares its patch', () => {
+  it('ships with the dsh family version and declares its patch', () => {
     expect(manifest.name).toBe('@vibedev/dsh-defaults')
-    expect(manifest.private).toBe(true)
+    expect(manifest.private).toBeUndefined()
+    expect(manifest.version).toBe(rootVersion)
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.exports?.['./cordis.patch.yml']).toBe('./cordis.patch.yml')
   })

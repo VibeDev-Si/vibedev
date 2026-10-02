@@ -57,10 +57,12 @@ const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /**
  * Ordinary directories whose packages this repository publishes: one release member each.
- * VibeDev fork: packages/vibedev/* are private fork packages shipped inside the app, never published.
+ * VibeDev fork: packages/vibedev/* are packed into the app with the dsh family but never published to npm.
  */
 const standardReleaseMemberDirectory =
   /^(?:packages\/(?!experimental\/|vibedev\/)[^/]+\/[^/]+|apps\/(?!desktop(?:-host)?$)[^/]+|vendor\/[^/]+)$/
+/** VibeDev fork packages: app-internal, so neither private (the dsh pack skips private packages) nor published. */
+const vibedevPackageDirectory = /^packages\/vibedev\/[^/]+$/
 /** Installable application assembled by electron-builder rather than published to npm. */
 const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
@@ -430,6 +432,10 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
       || manifest.repository.directory !== dir) {
       errors.push(`${label}: release member repository must use ${publishedRepositoryUrl} with directory ${dir}`)
     }
+  } else if (vibedevPackageDirectory.test(dir)) {
+    if (manifest.private === true) errors.push(`${label}: VibeDev package must not be private, or the desktop pack skips it`)
+    if (manifest.publishConfig !== undefined) errors.push(`${label}: VibeDev package is never published and must omit publishConfig`)
+    if (manifest.name?.startsWith('@vibedev/') !== true) errors.push(`${label}: VibeDev package must use the @vibedev scope`)
   } else if (!experimentalPackageDirectory.test(dir) && manifest.private !== true) {
     errors.push(`${label}: package.json must set "private": true`)
   }
