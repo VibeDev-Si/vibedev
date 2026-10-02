@@ -56,14 +56,14 @@ export interface Config {
   cacheRetention: 'none' | 'short' | 'long'
 }
 
-export const Config: Schema<Config> = Schema.object({
+export const Config = Schema.object({
   gatewayOrigin: Schema.string().default('https://vibedev.jzsaas.com'),
   displayName: Schema.string().default('VibeDev'),
   apiKeyEnv: Schema.string().default('VIBEDEV_GATEWAY_API_KEY'),
   catalogRefreshMinutes: Schema.number().min(1).max(1440).default(30),
   catalogTimeoutMs: Schema.number().min(1000).max(120_000).default(20_000),
   cacheRetention: Schema.union([Schema.const('none'), Schema.const('short'), Schema.const('long')]).default('short'),
-}) as Schema<Config>
+})
 
 /** Strip trailing slashes so `<origin>/v1/...` never doubles one. */
 function originOf(config: Config): string {

@@ -45,7 +45,7 @@ async function bench(script: Behavior[], credential: GatewayCredential | null = 
   return { ctx, adapter, gateway, rejected }
 }
 
-const hello = createUserMessage({ content: [{ type: 'text', text: 'hi' }] })
+const hello = createUserMessage({ content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' } })
 
 async function run(ctx: Context, options: Omit<GenerateOptions, 'provider' | 'messages'>): Promise<{ text: string; finish: FinishReason }> {
   const assembler = new BlockAssembler()
