@@ -342,11 +342,12 @@ describe('loadProfile', () => {
     expect(() => loadProfile('t', 'custom', anchor, home))
       .toThrow('profile "custom" does not exist')
     expect(PROFILE_TEMPLATES.web?.bundles).toContain('@deepseek-ai/dsh-base')
+    // VibeDev fork: base-backed templates end with the VibeDev defaults bundle.
     expect(PROFILE_TEMPLATES.acp).toEqual({
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
+      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app', '@vibedev/dsh-defaults'],
     })
     expect(PROFILE_TEMPLATES.sdk).toEqual({
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
+      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app', '@vibedev/dsh-defaults'],
     })
     expect(PROFILE_TEMPLATES['sdk-minimal']).toEqual({
       bundles: ['@deepseek-ai/dsh-sdk-minimal'],
@@ -372,7 +373,7 @@ describe('loadProfile', () => {
     writeProfileManifest(stock, retiredManifest)
     loadProfile('t', 'headless', anchor, home)
     expect(readProfileManifest('t', stock).dsh?.profile).toEqual({
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless', '@vibedev/dsh-defaults'],
     })
 
     const customHome = tmp()

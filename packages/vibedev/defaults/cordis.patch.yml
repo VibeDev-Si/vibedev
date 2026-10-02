@@ -1,0 +1,21 @@
+# VibeDev product defaults, the last layer of every dsh-base profile (Desktop and
+# Web, headless, ACP, SDK). A patch replaces a row's whole config, so an
+# overridden row restates every key it keeps.
+
+# Nothing goes to DeepSeek's servers by default: model requests carry no
+# session-log or plugin-inventory extensions, and feedback does not upload the
+# session to DeepSeek's telemetry collector.
+- id: session-log-deepseek
+  disabled: true
+
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+- id: session-telemetry-otel
+  disabled: true
+
+# The model is told it runs in VibeDev, not DeepSeek Harness.
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: 'You are an AI agent running in VibeDev.'

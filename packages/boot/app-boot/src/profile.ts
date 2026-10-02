@@ -176,18 +176,20 @@ export function resolveProfileDir(name: string, home: string = resolveDshHome())
 }
 
 /** The shipped profile templates auto-initialized on first use, by name. */
+// VibeDev fork: every base-backed template ends with the VibeDev defaults
+// bundles (no DeepSeek uploads, VibeDev identity); see FORK-DELTA.md.
 export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   acp: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app', '@vibedev/dsh-defaults'],
   },
   web: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@vibedev/dsh-defaults', '@vibedev/dsh-web-defaults'],
   },
   headless: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless', '@vibedev/dsh-defaults'],
   },
   sdk: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app', '@vibedev/dsh-defaults'],
   },
   'sdk-minimal': {
     bundles: ['@deepseek-ai/dsh-sdk-minimal'],

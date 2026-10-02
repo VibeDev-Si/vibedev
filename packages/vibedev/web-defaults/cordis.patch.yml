@@ -1,0 +1,35 @@
+# VibeDev defaults for the Web and Desktop composition, layered after
+# dsh-web-app. A patch replaces a row's whole config, so an overridden row
+# restates every key it keeps.
+
+# Desktop turns product analytics on by default and sends it to DeepSeek's
+# collector; VibeDev sends none.
+- id: desktop-product-telemetry
+  disabled: true
+
+- id: product-analytics
+  disabled: true
+
+# The Settings toggle for uploading session logs to help improve DeepSeek's
+# models; the upload itself is off in @vibedev/dsh-defaults.
+- id: ui-settings-session-log
+  disabled: true
+
+# The DeepSeek whale and wordmark never show; the VibeDev glyph and name take
+# the sidebar and blank-session hero brand slots instead.
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: vibedev-brand
+      name: '@vibedev/dsh-client-brand'
+
+# `vibedev-app web` listens on 3180 by default so it never collides with an
+# installed DeepSeek Harness on 3080; `--port` and the Desktop Host still win.
+- id: webserver
+  config:
+    host: !!js ctx.webStartup.host ?? '127.0.0.1'
+    port: !!js ctx.webStartup.port ?? 3180
+    compression: gzip
+    compressionLevel: 1
+    compressionThresholdBytes: 1024
