@@ -16,7 +16,7 @@ import type { PluginManagerPageProps } from '../src/client/index.ts'
 import type { ConfigLedger } from '../src/client/config-ledger.ts'
 import { rowKey, type InstallState, type PackageRow, type PackageView, type PluginManagerState } from '../src/client/manager-store.ts'
 import { INSTALL_GIT_EXAMPLE, INSTALL_PATH_EXAMPLE, en, zh, type PluginManagerLocaleKey } from '../src/client/locales.ts'
-import type { PluginActivationOwnerProps, PluginDetailProps, PluginsSubject } from '../src/client/slot-contract.ts'
+import type { PluginActivationOwnerProps, PluginBrowseOwnerProps, PluginDetailProps, PluginsSubject } from '../src/client/slot-contract.ts'
 
 afterEach(cleanup)
 
@@ -81,7 +81,7 @@ const READY: PluginManagerState = {
  * (a list slot's cell is empty), the view asked for — `detail` for a detail
  * contribution — and the owner props.
  */
-type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail', owner: unknown, form?: ConfigPageForm) => ReactNode>
+type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail' | 'browse', owner: unknown, form?: ConfigPageForm) => ReactNode>
 
 /** The subject a detail contribution was rendered with. */
 function subjectOf(owner: unknown): PluginsSubject | undefined {
@@ -105,6 +105,7 @@ function renderTab(
     ensure: vi.fn(),
     refresh: vi.fn(),
     openInstall: vi.fn(),
+    hasBrowse: vi.fn(() => false),
     closeInstall: vi.fn(),
     editInstallSpec: vi.fn(),
     runInstall: vi.fn(),
@@ -158,6 +159,7 @@ function renderTab(
       const body = bodies[`${name}:${opts?.only ?? opts?.entryKey ?? ''}`]
       if (body === undefined) return null
       if (name === 'plugins.bundle.activation') return body('activation', owner)
+      if (name === 'plugins.add.browse') return body('browse', owner)
       if (name.startsWith('plugins.detail.')) return body('detail', owner)
       if (!('view' in owner) || (owner.view !== 'summary' && owner.view !== 'page')) {
         throw new Error('Plugin configuration fixture requires a summary or page view')
@@ -1846,4 +1848,43 @@ it('supplies the accepted entry values and atomic mutation action to a custom pl
   fireEvent.click(screen.getByText('Custom'))
   fireEvent.click(screen.getByText('Save custom'))
   expect(mutate).toHaveBeenCalledWith([{ op: 'set', path: ['count'], value: 3 }], 7)
+})
+
+describe('plugin market page (VibeDev fork)', () => {
+  it('opens the market a plugins.add.browse entry draws for Add plugin, keeps the dialog one click away, and leads back to the cards', () => {
+    const { actions } = renderTab({}, {}, {
+      'plugins.add.browse:': (_view, owner) => (
+        <button type="button" onClick={() => { (owner as PluginBrowseOwnerProps).openInstall({ spec: 'dsh-plugin-whale-pet' }) }}>Market install</button>
+      ),
+    })
+    actions.hasBrowse.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: en.addPlugin }))
+    expect(actions.openInstall).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-plugin-browse]')).not.toBeNull()
+    expect(screen.queryByRole('heading', { name: en.title })).toBeNull()
+    expect(screen.getByRole('heading', { name: en.installTitle })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Market install' }))
+    expect(actions.openInstall).toHaveBeenLastCalledWith({ spec: 'dsh-plugin-whale-pet' })
+    fireEvent.click(screen.getByRole('button', { name: en.installBySpec }))
+    expect(actions.openInstall).toHaveBeenLastCalledWith()
+    fireEvent.click(screen.getByRole('button', { name: en.backToList }))
+    expect(document.querySelector('[data-plugin-browse]')).toBeNull()
+    expect(screen.getByText(en.empty)).toBeTruthy()
+  })
+
+  it('lets the market lead back itself, and shows a running install instead of the market', () => {
+    const { actions, set } = renderTab({}, {}, {
+      'plugins.add.browse:': (_view, owner) => (
+        <button type="button" onClick={() => { (owner as PluginBrowseOwnerProps).close() }}>Leave market</button>
+      ),
+    })
+    actions.hasBrowse.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: en.addPlugin }))
+    fireEvent.click(screen.getByRole('button', { name: 'Leave market' }))
+    expect(document.querySelector('[data-plugin-browse]')).toBeNull()
+    set({ install: { ...IDLE_INSTALL, requestId: 'pending-install' as PluginInstallRequestId, phase: 'running' } })
+    fireEvent.click(screen.getByRole('button', { name: en.installViewTask }))
+    expect(actions.openInstall).toHaveBeenCalledExactlyOnceWith()
+    expect(document.querySelector('[data-plugin-browse]')).toBeNull()
+  })
 })

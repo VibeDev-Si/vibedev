@@ -72,8 +72,31 @@ export interface PluginActivationOwnerProps {
   readonly onOpenDetails: () => void
 }
 
+/** A spec, and optionally the only registry to ask, that the install dialog opens with. */
+export interface InstallPrefill {
+  /** Package spec as the person would type it, for example `@scope/name@1.2.3`. */
+  readonly spec: string
+  /** Registry URL asked alone for this install; omitted keeps the registry last used here. */
+  readonly registry?: string
+}
+
+/** What the Plugins page hands the plugin market it shows for Add plugin (VibeDev fork). */
+export interface PluginBrowseOwnerProps {
+  /** Open the page's own install dialog, filled in, so the install runs the page's checks and progress. */
+  readonly openInstall: (prefill?: InstallPrefill) => void
+  /** Leave the market for the plugin list. */
+  readonly close: () => void
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /**
+     * VibeDev fork: a plugin market page. When an entry fills it, Add plugin
+     * opens this page instead of the install dialog, and the page keeps a way
+     * to the dialog for installing by name or address. Without an entry, Add
+     * plugin opens the dialog as before.
+     */
+    'plugins.add.browse': { kind: 'single'; scope: 'root'; owner: PluginBrowseOwnerProps }
     /** Optional guidance after the user enables a bundle from the list, keyed by npm package name. */
     'plugins.bundle.activation': { kind: 'keyed'; scope: 'root'; owner: PluginActivationOwnerProps }
     /**

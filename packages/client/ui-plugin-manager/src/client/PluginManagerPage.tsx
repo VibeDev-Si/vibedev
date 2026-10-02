@@ -31,7 +31,7 @@ import {
   type PluginManagerFace, type RegistryChoice,
 } from './manager-store.ts'
 import { managementText, noticeText, packageText, registryText, rowText, type Translate } from './presentation.ts'
-import type { PluginPackageRef, PluginRowRef, PluginsSubject } from './slot-contract.ts'
+import type { InstallPrefill, PluginPackageRef, PluginRowRef, PluginsSubject } from './slot-contract.ts'
 import type { ConfigPageForm } from './slot-contract.ts'
 import css from './PluginManagerPage.module.css'
 
@@ -41,7 +41,7 @@ export type PluginManagerPageProps =
   & PropsLocale<'pluginManager'>
   & PropsRenderSlots<
     | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation'
-    | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
+    | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section' | 'plugins.add.browse'
   >
   & InjectFace<PluginManagerFace>
   & PropsStore<ReturnType<typeof createNavigationStore>>
@@ -447,6 +447,33 @@ function packageRef(pkg: PackageView): PluginPackageRef {
     enabled: pkg.enabled,
     rows: pkg.rows.map(rowRef),
   }
+}
+
+/**
+ * VibeDev fork: the plugin market a `plugins.add.browse` entry draws, under the
+ * crumb back to the cards and a head that keeps the install dialog one click away.
+ */
+function BrowseView({ t, renderSlot, onBack, openInstall }: {
+  readonly t: Translate
+  readonly renderSlot: RenderConfig
+  readonly onBack: () => void
+  readonly openInstall: (prefill?: InstallPrefill) => void
+}): ReactNode {
+  return (
+    <div className={css.detail} data-plugin-browse>
+      <div className={css.detailTop} data-window-drag>
+        <button type="button" className={css.crumb} aria-label={t('backToList')} onClick={onBack}>
+          <IconChevronDownOutlineRegular className={css.crumbIcon} aria-hidden="true" />
+          <span>{t('crumbRoot')}</span>
+        </button>
+        <div className={css.detailHead}>
+          <h2 className={css.detailTitle}>{t('installTitle')}</h2>
+          <Button variant="outline" size="sm" onClick={() => { openInstall() }}>{t('installBySpec')}</Button>
+        </div>
+      </div>
+      <div className={css.detailMain}>{renderSlot('plugins.add.browse', { openInstall, close: onBack })}</div>
+    </div>
+  )
 }
 
 /**
@@ -1286,7 +1313,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const openPkg = view.kind === 'package' || view.kind === 'row' ? listed.find(pkg => pkg.name === view.name) : undefined
   const openItem = view.kind === 'item' ? ledger.items.find(item => item.id === view.id) : undefined
   const openRow = view.kind === 'row' && openPkg !== undefined ? openPkg.rows.find(row => row.rowId === view.rowId) : undefined
-  const showsCards = openPkg === undefined && openItem === undefined
+  // VibeDev fork: the plugin market a `plugins.add.browse` entry draws replaces the cards while open.
+  const browsing = view.kind === 'browse'
+  const showsCards = !browsing && openPkg === undefined && openItem === undefined
   const activated = listed.find(pkg => pkg.name === activation && pkg.enabled && !state.busy.includes(pkg.name))
   const setRowEnabled = (row: PackageRow, enabled: boolean): void => {
     /* v8 ignore next -- a row without a live entry has its switch disabled */
@@ -1352,7 +1381,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                   </span>
                 </button>
               </Tooltip>
-              <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />} disabled={!loaded} onClick={props.openInstall}>
+              <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />} disabled={!loaded} onClick={() => { if (state.install.requestId === undefined && props.hasBrowse()) setView({ kind: 'browse' }); else props.openInstall() }}>
                 {t(state.install.requestId === undefined ? 'addPlugin' : 'installViewTask')}
               </Button>
             </div>
@@ -1419,6 +1448,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
         : null}
       {loaded && openItem !== undefined
         ? <ItemDetail form={formFor(openItem.id)} item={openItem} t={t} renderSlot={renderSlot} onBack={() => { setView({ kind: 'list' }) }} />
+        : null}
+      {browsing
+        ? <BrowseView t={t} renderSlot={renderSlot} onBack={() => { setView({ kind: 'list' }) }} openInstall={props.openInstall} />
         : null}
       {loaded && showsCards
         ? officialCards.length === 0 && mine.length === 0 && state.status !== 'error'

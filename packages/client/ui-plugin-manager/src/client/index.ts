@@ -27,7 +27,7 @@ import { configLedgerSource } from './config-ledger.ts'
 import { PluginManagerController } from './manager-store.ts'
 import { en, zh, type PluginManagerLocaleKey } from './locales.ts'
 import { createNavigationStore } from './navigation-store.ts'
-import type {} from './slot-contract.ts'
+import type { InstallPrefill } from './slot-contract.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -39,6 +39,11 @@ declare module '@deepseek-ai/cordis' {
        * @param packageName - npm package name of the bundle.
        */
       openBundle(packageName: string): void
+      /**
+       * VibeDev fork: open the Plugins panel's install dialog, optionally filled in by a plugin market.
+       * @param prefill - spec and the only registry to ask; omitted opens an empty dialog.
+       */
+      openInstall(prefill?: InstallPrefill): void
     }
   }
 }
@@ -48,7 +53,8 @@ export type { ConfigLedger, OfficialItem } from './config-ledger.ts'
 export type { PluginManagerFace } from './manager-store.ts'
 export type { PluginManagerLocaleKey } from './locales.ts'
 export type {
-  ConfigPageForm, PluginActivationOwnerProps, PluginConfigViewProps, PluginDetailProps, PluginPackageRef, PluginRowRef, PluginsSubject,
+  ConfigPageForm, InstallPrefill, PluginActivationOwnerProps, PluginBrowseOwnerProps, PluginConfigViewProps, PluginDetailProps,
+  PluginPackageRef, PluginRowRef, PluginsSubject,
 } from './slot-contract.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -123,6 +129,7 @@ export function apply(ctx: ClientContext): void {
         'plugins.detail.actions': { kind: 'list', scope: 'root' },
         'plugins.detail.badge': { kind: 'list', scope: 'root' },
         'plugins.detail.section': { kind: 'list', scope: 'root' },
+        'plugins.add.browse': { kind: 'single', scope: 'root' },
       },
     }, PluginManagerPage)
     yield ctx.layout.panelInfo.subscribe(() => {
@@ -132,6 +139,10 @@ export function apply(ctx: ClientContext): void {
       openBundle: (packageName: string) => {
         ctx.layout.selectPanel(PANEL_ID)
         instance.actions.setView({ kind: 'package', name: packageName })
+      },
+      openInstall: (prefill?: InstallPrefill) => {
+        ctx.layout.selectPanel(PANEL_ID)
+        face.openInstall(prefill)
       },
     })
     yield () => { void disposeNavigation() }

@@ -200,4 +200,23 @@ describe('ui-plugin-manager browser plugin', () => {
     await Promise.resolve()
     expect(b.list).toHaveBeenCalledTimes(3)
   })
+
+  it('opens the install dialog filled in through navigation and says whether a plugin market fills Add plugin (VibeDev fork)', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    expect(b.slots.spec('plugins.add.browse')).toMatchObject({ kind: 'single', scope: 'root' })
+    const injected: object = b.slots.entries('main')[0]!.inject!()
+    const face = injected as PluginManagerFace
+    expect(face.hasBrowse()).toBe(false)
+    const removeMarket = b.slots.register({ name: 'plugins.add.browse' }, () => null)
+    expect(face.hasBrowse()).toBe(true)
+    removeMarket()
+    expect(face.hasBrowse()).toBe(false)
+    b.ctx.pluginNavigation.openInstall({ spec: '@vibedev/dsh-demo', registry: 'https://npm.vibedev.example/' })
+    expect(b.panelInfo.getSnapshot().activePanelId).toBe(PANEL_ID)
+    expect(face.hooks.pluginManager.getSnapshot().install).toMatchObject({
+      open: true, spec: '@vibedev/dsh-demo', registry: { kind: 'custom', url: 'https://npm.vibedev.example/' },
+    })
+  })
 })

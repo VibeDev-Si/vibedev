@@ -33,6 +33,7 @@ import type { LocalizedText, PluginLocalizedMeta } from '@deepseek-ai/dsh-packag
 import type { SettingsDescribeFace, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ConfigLedger } from './config-ledger.ts'
 import { shortName } from './presentation.ts'
+import type { InstallPrefill } from './slot-contract.ts'
 
 /** The action a failed notice names. */
 export type FailedAction = 'enable' | 'disable' | 'uninstall' | 'rowEnable' | 'rowDisable'
@@ -309,7 +310,13 @@ export interface PluginManagerFace {
   ensure: () => void
   /** Read the Host again. */
   refresh: () => void
-  openInstall: () => void
+  /**
+   * Open the install dialog. VibeDev fork: a plugin market may fill in the spec and the only registry to ask;
+   * a hidden install that is still running reopens as it is and ignores the prefill.
+   */
+  openInstall: (prefill?: InstallPrefill) => void
+  /** VibeDev fork: whether a plugin market fills `plugins.add.browse`, so Add plugin opens it instead of the dialog. */
+  hasBrowse: () => boolean
   /** Hide immediately, abort a check, or request cancellation while retaining the Host-owned installation. */
   closeInstall: () => void
   editInstallSpec: (text: string) => void
@@ -513,6 +520,8 @@ export class PluginManagerController {
   private noticeSeq = 0
   private analyticsAttempt: { input: string; started: number } | undefined
   private registryRead: RegistryRead | undefined
+  /** VibeDev fork: the registry a plugin market filled in for the open dialog; running with it leaves the memory alone. */
+  private prefilledRegistry: RegistryChoice | undefined
   /** The registry last used from this browser, kept across dialogs and page loads; null until one was used. */
   private readonly registryMemory: SnapshotStore<RegistryChoice | null> = createSnapshotStore<RegistryChoice | null>(null, {
     persist: { name: 'dsh.plugin-manager.install-registry' },
@@ -559,13 +568,18 @@ export class PluginManagerController {
       configForm: id => this.ctx.configForms.get(id),
       ensure: () => { if (this.getSnapshot().status === 'idle') void this.load() },
       refresh: () => { void this.refresh() },
-      openInstall: () => {
+      openInstall: (prefill?: InstallPrefill) => {
         this.ctx.get('productAnalytics')?.track('plugin_add_button_click', {})
         const install = this.getSnapshot().install
         if (install.requestId === undefined) {
           // A new dialog starts from the registry last used here and reads what the Host offers; a hidden install reopens as it is.
-          this.patch({ install: { ...IDLE_INSTALL, open: true, registry: this.registryMemory.getSnapshot() ?? OFFICIAL_REGISTRY } })
-          const read: RegistryRead = { choice: this.getSnapshot().install.registry }
+          // VibeDev fork: a market's prefill supplies the spec and, when it names one, the registry asked alone. That
+          // registry counts as chosen: the read holds a copy, so the Host's answer neither replaces it nor holds the check.
+          const prefilled: RegistryChoice | undefined = prefill?.registry === undefined ? undefined : { kind: 'custom', url: prefill.registry }
+          this.prefilledRegistry = prefilled
+          const registry = prefilled ?? this.registryMemory.getSnapshot() ?? OFFICIAL_REGISTRY
+          this.patch({ install: { ...IDLE_INSTALL, open: true, spec: prefill?.spec ?? '', registry } })
+          const read: RegistryRead = { choice: prefilled === undefined ? this.getSnapshot().install.registry : { ...prefilled } }
           this.registryRead = read
           read.done = this.readRegistries(read).finally(() => { delete read.done })
         } else {
@@ -573,6 +587,7 @@ export class PluginManagerController {
         }
         void this.reconcileInstall()
       },
+      hasBrowse: () => this.ctx.slots.entries('plugins.add.browse').length > 0,
       closeInstall: () => {
         if (isInstallPending(this.getSnapshot().install.phase)) {
           this.patchInstall({ open: false })
@@ -867,7 +882,8 @@ export class PluginManagerController {
     const currentChoice = this.getSnapshot().install.registry
     const selected = currentChoice.kind === 'custom' ? { ...currentChoice, url: currentChoice.url.trim() } : currentChoice
     const registry: Registry = selected.kind === 'custom' ? selected.url : selected.registry
-    this.registryMemory.set(selected)
+    // VibeDev fork: a registry a plugin market filled in is not the person's choice to remember.
+    if (currentChoice !== this.prefilledRegistry) this.registryMemory.set(selected)
     const inspected = await this.ctx.remote.pluginManager.inspect(spec, { registry }, controller.signal)
     if (this.gone(controller.signal)) return
     this.inspectAbort = undefined

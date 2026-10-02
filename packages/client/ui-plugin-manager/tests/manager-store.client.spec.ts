@@ -1798,3 +1798,50 @@ it('reports a successful install with only documented result fields', async () =
     input_value: 'dsh-new', is_success: true, duration: expect.any(Number) as number, plugin_name: 'dsh-new',
   }]])
 })
+
+describe('install prefill (VibeDev fork)', () => {
+  it('opens the dialog with a market\'s spec and registry, keeps that registry once the Host answers, and leaves the memory alone', async () => {
+    const key = 'dsh.plugin-manager.install-registry'
+    const storage = new Map([[key, JSON.stringify({ kind: 'custom', url: CORP })]])
+    vi.stubGlobal('localStorage', {
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => { storage.set(name, value) },
+      removeItem: (name: string) => { storage.delete(name) },
+    })
+    try {
+      const market = 'https://npm.vibedev.example/'
+      const { plugins, face, state } = bench({ inspect: vi.fn(async () => ok({ status: 'refused', problem: 'not-found', reason: 'E404' })) })
+      face.openInstall({ spec: '@vibedev/dsh-demo', registry: market })
+      expect(state().install).toMatchObject({ open: true, spec: '@vibedev/dsh-demo', registry: { kind: 'custom', url: market } })
+      await vi.waitFor(() => { expect(state().install.registries).toEqual(REGISTRIES) })
+      // The Host's answer lists what it offers without replacing the registry the market named.
+      expect(state().install.registry).toEqual({ kind: 'custom', url: market })
+      face.runInstall()
+      await vi.waitFor(() => { expect(state().install.inputError?.problem).toBe('not-found') })
+      expect(plugins.inspect).toHaveBeenCalledWith('@vibedev/dsh-demo', { registry: market }, expect.any(AbortSignal))
+      expect(JSON.parse(storage.get(key)!)).toEqual({ kind: 'custom', url: CORP })
+      // A prefill without a registry starts from the one last used, and an empty dialog starts empty.
+      face.closeInstall()
+      face.openInstall({ spec: 'dsh-plugin-whale-pet' })
+      expect(state().install).toMatchObject({ open: true, spec: 'dsh-plugin-whale-pet', registry: { kind: 'custom', url: CORP } })
+      face.closeInstall()
+      face.openInstall()
+      expect(state().install).toMatchObject({ open: true, spec: '', registry: { kind: 'custom', url: CORP } })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('leaves a dialog with a run in flight as it is', async () => {
+    const install = deferred<ReturnType<typeof ok<ChangeResult>>>()
+    const { face, state, started } = bench({ installBundle: vi.fn().mockReturnValue(install.promise) })
+    face.openInstall()
+    face.editInstallSpec('slow')
+    face.runInstall()
+    const requestId = await started()
+    face.openInstall({ spec: '@vibedev/dsh-demo', registry: 'https://npm.vibedev.example/' })
+    expect(state().install).toMatchObject({ open: true, requestId, spec: 'slow' })
+    install.resolve(ok({ ...APPLIED, bundle: 'slow' }))
+    await vi.waitFor(() => { expect(state().install.phase).toBe('done') })
+  })
+})

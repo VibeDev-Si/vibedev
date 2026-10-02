@@ -7,6 +7,8 @@ type View =
   | { readonly kind: 'package'; readonly name: string }
   | { readonly kind: 'item'; readonly id: string }
   | { readonly kind: 'row'; readonly name: string; readonly rowId: string }
+  // VibeDev fork: the plugin market page an Add plugin click opens when a market fills `plugins.add.browse`.
+  | { readonly kind: 'browse' }
 
 type NavigationState = { view: View }
 type NavigationActions = { setView: (draft: NavigationState, view: View) => void }
