@@ -60,12 +60,34 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { importDshSessions } from './vibedev-dsh-import.ts'
 
 // VibeDev fork: the Harness home defaults to ~/.vibedev-app, so this app never
 // shares credentials, sessions, or the profile lock with an installed DeepSeek
 // Harness (~/.dsh). An explicit DSH_HOME still wins. Set before any path is
 // resolved; the Host and agent shells inherit it.
 if (!process.env.DSH_HOME) process.env.DSH_HOME = join(homedir(), '.vibedev-app')
+
+/**
+ * VibeDev fork: copy the sessions of an installed DeepSeek Harness (~/.dsh) into
+ * the VibeDev home before the Host reads it, so people who switch keep their
+ * history. Never fails startup; VIBEDEV_DSH_IMPORT=0 turns it off.
+ */
+async function importDeepSeekHarnessSessions(): Promise<void> {
+  const home = process.env.DSH_HOME
+  if (process.env.VIBEDEV_DSH_IMPORT === '0' || home === undefined) return
+  try {
+    const result = await importDshSessions({ from: join(homedir(), '.dsh'), to: home })
+    if (result.skipped !== undefined) {
+      console.warn(`vibedev: DeepSeek Harness sessions not imported: ${result.skipped}`)
+    } else if (result.copied + result.workspaces + result.deferred + result.attachmentFailures > 0) {
+      console.info(`vibedev: imported ${String(result.copied)} DeepSeek Harness sessions, ${String(result.workspaces)} new workspaces; `
+        + `${String(result.deferred)} sessions and ${String(result.attachmentFailures)} attachments wait for a later start`)
+    }
+  } catch (error) {
+    console.warn(`vibedev: DeepSeek Harness session import failed: ${String(error)}`)
+  }
+}
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -575,7 +597,13 @@ async function main(): Promise<void> {
     startup ??= (async () => {
       await navigateMain(applicationUrl)
       await backend.start(async () => {
-        await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
+        const importing = importDeepSeekHarnessSessions()
+        try {
+          await Promise.all([manager.applyRelease(), prepareHostEnvironment()])
+        } finally {
+          // The Host must not open the home while the import still writes it.
+          await importing
+        }
       })
       if (backend.host !== undefined) await openInitialWindow()
       if (backend.host !== undefined) updateJournal?.action('workspace-ready')
