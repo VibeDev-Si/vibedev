@@ -79,7 +79,7 @@ describe('VibeDev Web defaults bundle', () => {
     expect(ours.personaSuffix).toContain('vibedev-app plugin --profile desktop add <package>')
     expect(ours.personaSuffix).toContain('never run that for VibeDev')
     // Templates are strict: the only variables are the ones the system prompt defines.
-    expect([...String(ours.personaPrefix + ours.personaSuffix).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model', 'cwd'])
+    expect([...(String(ours.personaPrefix) + String(ours.personaSuffix)).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model', 'cwd'])
   })
 
   it('only targets rows that dsh-web-app defines, so no patch is dropped with a warning', () => {
