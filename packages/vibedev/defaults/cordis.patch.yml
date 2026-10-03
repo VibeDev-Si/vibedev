@@ -45,6 +45,19 @@
     provider: deepseek-account
     model: deepseek-v4-flash
 
+# Web search goes through the gateway with the account's token, like the models.
+# The DeepSeek provider needs a DeepSeek key or a DeepSeek account token the
+# VibeDev account never hands out; turning it off also removes its settings page
+# (a DeepSeek key), which only shows while its namespace is served. Fetching
+# stays on the local HTTP provider.
+- id: web-search-deepseek
+  disabled: true
+
+- id: web
+  config:
+    searchProvider: vibedev-gateway
+    fetchProvider: http
+
 - insert:
     - id: vibedev-account
       name: '@vibedev/dsh-account'
@@ -54,3 +67,6 @@
     # left, so pickers list them first and the sign-in and top-up prompts apply.
     - id: llm-vibedev-gateway
       name: '@vibedev/dsh-llm-gateway'
+    # Searches for the web row above.
+    - id: web-search-vibedev
+      name: '@vibedev/dsh-web-search-gateway'

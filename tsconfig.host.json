@@ -418,6 +418,7 @@
     { "path": "./packages/vibedev/web-defaults" },
     { "path": "./packages/vibedev/account" },
     { "path": "./packages/vibedev/llm-gateway" },
+    { "path": "./packages/vibedev/web-search-gateway" },
     { "path": "./packages/boot/app-boot" },
     { "path": "./packages/boot/cmdline" },
     { "path": "./packages/sdk/server" },

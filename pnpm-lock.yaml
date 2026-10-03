@@ -13648,6 +13648,9 @@ importers:
       '@vibedev/dsh-llm-gateway':
         specifier: workspace:*
         version: link:../llm-gateway
+      '@vibedev/dsh-web-search-gateway':
+        specifier: workspace:*
+        version: link:../web-search-gateway
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -13714,6 +13717,25 @@ importers:
       js-yaml:
         specifier: ^4.2.0
         version: 4.3.1
+
+  packages/vibedev/web-search-gateway:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-deepseek-account':
+        specifier: workspace:*
+        version: link:../../credentials/deepseek-account
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-web':
+        specifier: workspace:*
+        version: link:../../web/web
 
   packages/web/tool-web:
     dependencies:

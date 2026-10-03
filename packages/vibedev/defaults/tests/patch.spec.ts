@@ -72,18 +72,32 @@ describe('VibeDev defaults bundle', () => {
 
   it('replaces the DeepSeek account and its models with the VibeDev account and gateway models', () => {
     const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
-    expect(targeted(parsed).slice(4)).toEqual([
+    expect(targeted(parsed).slice(4, 8)).toEqual([
       { id: 'deepseek-account', disabled: true },
       { id: 'llm-deepseek-account', disabled: true },
       { id: 'llm-deepseek', disabled: true },
       { id: 'agent-default-model', config: { provider: 'deepseek-account', model: 'deepseek-v4-flash' } },
     ])
     const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'deepseek-account')
-    expect(inserted(parsed)).toEqual([
+    expect(inserted(parsed).slice(0, 2)).toEqual([
       { id: 'vibedev-account', name: '@vibedev/dsh-account', config: { desktopPlatform: upstream?.config?.desktopPlatform } },
       { id: 'llm-vibedev-gateway', name: '@vibedev/dsh-llm-gateway' },
     ])
-    expect(manifest.dependencies).toEqual({ '@vibedev/dsh-account': 'workspace:*', '@vibedev/dsh-llm-gateway': 'workspace:*' })
+    expect(manifest.dependencies).toEqual({
+      '@vibedev/dsh-account': 'workspace:*',
+      '@vibedev/dsh-llm-gateway': 'workspace:*',
+      '@vibedev/dsh-web-search-gateway': 'workspace:*',
+    })
+  })
+
+  it('searches through the gateway instead of DeepSeek, keeping the upstream fetch provider', () => {
+    const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
+    const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'web')?.config
+    expect(targeted(parsed).slice(8)).toEqual([
+      { id: 'web-search-deepseek', disabled: true },
+      { id: 'web', config: { ...upstream, searchProvider: 'vibedev-gateway' } },
+    ])
+    expect(inserted(parsed).slice(2)).toEqual([{ id: 'web-search-vibedev', name: '@vibedev/dsh-web-search-gateway' }])
   })
 
   it('changes only rows that dsh-base defines and inserts only new ones, so no patch is dropped with a warning', () => {

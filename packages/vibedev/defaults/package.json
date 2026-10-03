@@ -22,7 +22,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@vibedev/dsh-account": "workspace:*",
-    "@vibedev/dsh-llm-gateway": "workspace:*"
+    "@vibedev/dsh-llm-gateway": "workspace:*",
+    "@vibedev/dsh-web-search-gateway": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"
