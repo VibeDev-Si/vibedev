@@ -69,6 +69,11 @@ export interface GatewayAdapterOptions {
   readonly origin: () => string
   /** The current catalog; a new array identity means a new catalog. */
   readonly catalog: () => readonly GatewayModel[]
+  /**
+   * Read the catalog again because it is empty when models are listed, so a catalog read that missed a
+   * fresh sign-in, or failed on a flaky network, recovers on the next list instead of the next timer.
+   */
+  readonly refreshCatalog?: () => Promise<void>
   /** The credential for one request, or undefined when nobody is signed in and no key is configured. */
   readonly resolveCredential: () => Promise<GatewayCredential | undefined>
   /** Hand back an account token the gateway rejected. */
@@ -173,16 +178,15 @@ export class GatewayAdapter extends LlmAdapter {
     return provider === this.config.provider ? this.config.retryPolicy?.() : undefined
   }
 
-  override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve().then(() => {
-      this.assertOwned(provider)
-      return this.current().models.getModels(provider).map(model => ({
-        provider,
-        id: model.id,
-        name: model.name,
-        inputModalities: [...model.input],
-      }))
-    })
+  override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {
+    this.assertOwned(provider)
+    if (this.current().catalog.length === 0) await this.config.refreshCatalog?.()
+    return this.current().models.getModels(provider).map(model => ({
+      provider,
+      id: model.id,
+      name: model.name,
+      inputModalities: [...model.input],
+    }))
   }
 
   override resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
@@ -350,6 +354,9 @@ export class GatewayAdapter extends LlmAdapter {
         if (request.reasoning || request.off) delete shaped.temperature
         break
       case 'anthropic-messages':
+        break
+      default:
+        // The catalog only ever names the three protocols above.
         break
     }
     return shaped

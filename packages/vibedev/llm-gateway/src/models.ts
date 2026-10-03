@@ -31,7 +31,8 @@ import type { GatewayApi, GatewayModel, GatewayReasoningLevel } from './catalog.
 export const THINKING_LEVELS: readonly ModelThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
 /** pi-ai's lazily loaded protocol implementations, one per protocol the gateway serves. */
-const PROTOCOLS: Readonly<Record<GatewayApi, () => ProviderStreams>> = {
+// Keyed by every pi-ai protocol name, so a descriptor naming one the gateway does not serve reads as absent.
+const PROTOCOLS: Readonly<Partial<Record<Api, () => ProviderStreams>>> = {
   'anthropic-messages': anthropicMessagesApi,
   'openai-responses': openAIResponsesApi,
   'openai-completions': openAICompletionsApi,
@@ -117,7 +118,7 @@ export function toPiModel(model: GatewayModel, provider: string, origin: string)
     contextWindow: model.contextWindow,
     maxTokens: model.maxTokens,
     ...compat === undefined ? {} : { compat },
-  } as Model<Api>
+  }
 }
 
 /**
@@ -145,9 +146,9 @@ function harnessApiKeyAuth(name: string): ApiKeyAuth {
  * @returns the pi-ai provider.
  */
 export function gatewayProvider(input: { id: string; name: string; models: readonly Model<Api>[] }): Provider {
-  const streams = new Map<GatewayApi, ProviderStreams>()
+  const streams = new Map<Api, ProviderStreams>()
   const protocolOf = (model: Model<Api>): ProviderStreams => {
-    const api = model.api as GatewayApi
+    const api = model.api
     let implementation = streams.get(api)
     if (implementation === undefined) {
       const factory = PROTOCOLS[api]

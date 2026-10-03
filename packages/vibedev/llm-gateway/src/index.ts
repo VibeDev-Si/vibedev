@@ -19,7 +19,7 @@
  */
 
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-attachment'
@@ -43,6 +43,9 @@ export const inject = ['llm']
 /** The route the gateway's models serve on: the Harness's account channel. */
 export const PROVIDER = 'deepseek-account'
 
+/** Shortest gap between two catalog reads that an empty model list asks for. */
+const ON_DEMAND_READ_GAP_MS = 15_000
+
 export interface Config {
   /** Gateway origin; requests and the catalog go to `<origin>/v1/...`. */
   gatewayOrigin: string
@@ -58,9 +61,10 @@ export interface Config {
   cacheRetention: 'none' | 'short' | 'long'
   /**
    * Models listed first, in this order, when the catalog offers them. The first one is what a
-   * fresh sign-in selects, since the session controller picks the channel's first model.
+   * fresh sign-in selects, since the session controller picks the channel's first model. Read at
+   * every catalog read.
    */
-  preferredModels: string[]
+  preferredModels: Volatile<string[]>
 }
 
 export const Config = Schema.object({
@@ -70,7 +74,10 @@ export const Config = Schema.object({
   catalogRefreshMinutes: Schema.number().min(1).max(1440).default(30),
   catalogTimeoutMs: Schema.number().min(1000).max(120_000).default(20_000),
   cacheRetention: Schema.union([Schema.const('none'), Schema.const('short'), Schema.const('long')]).default('short'),
-  preferredModels: Schema.array(Schema.string()).default(['deepseek-v4-flash']),
+  // Live-editable, which gives this entry a settings namespace: the settings service serves only
+  // entries with a live field, and the Models page lists the account row only under a served
+  // namespace. Without one the page stays empty while the pickers list every model.
+  preferredModels: Schema.array(Schema.string()).default(['deepseek-v4-flash']).volatile(),
 })
 
 /**
@@ -107,6 +114,7 @@ export function apply(ctx: Context, config: Config): void {
     displayName: config.displayName,
     origin: () => origin,
     catalog: () => catalog,
+    refreshCatalog: () => refreshIfEmpty(),
     resolveCredential,
     rejectToken: token => ctx.get('deepseekAccount')?.rejectToken(token) ?? Promise.resolve(),
     deviceId: async () => (await ctx.get('deepseekAccount')?.getDeviceIdentity())?.deviceId ?? 'vibedev-desktop',
@@ -128,44 +136,67 @@ export function apply(ctx: Context, config: Config): void {
   ])
 
   let reading: Promise<void> | undefined
+  let readRequests = 0
+  let lastOnDemandRead = 0
   let disposed = false
+  const readOnce = async (): Promise<void> => {
+    try {
+      const credential = await resolveCredential()
+      let next: readonly GatewayModel[] = []
+      if (credential !== undefined) {
+        const response = await fetch(`${origin}/v1/models`, {
+          headers: { accept: 'application/json', authorization: `Bearer ${credential.token}` },
+          signal: AbortSignal.timeout(config.catalogTimeoutMs),
+          redirect: 'error',
+        })
+        if (response.status === 401 && credential.kind === 'account') {
+          await ctx.get('deepseekAccount')?.rejectToken(credential.token)
+        }
+        if (!response.ok) throw new Error(`gateway catalog answered HTTP ${response.status}`)
+        next = preferredFirst(parseCatalog(await response.json()), config.preferredModels.get())
+      }
+      const key = JSON.stringify(next)
+      if (disposed || key === catalogKey) return
+      catalog = next
+      catalogKey = key
+      registration.replace([PROVIDER])
+      ctx.logger.info(`llm-vibedev-gateway: catalog lists ${next.length} chat model(s)`)
+    } catch (error) {
+      // A failed read keeps the last catalog: a flaky network must not empty every picker.
+      ctx.logger.warn('llm-vibedev-gateway: catalog read failed: %o', error)
+    }
+  }
+  // A request that arrives during a read gets a read of its own once that one ends: a sign-in reports
+  // several state changes, and the read the first one starts can look for the credential before the
+  // sign-in has stored it.
   const readCatalog = (): Promise<void> => {
+    readRequests++
     reading ??= (async () => {
       try {
-        const credential = await resolveCredential()
-        let next: readonly GatewayModel[] = []
-        if (credential !== undefined) {
-          const response = await fetch(`${origin}/v1/models`, {
-            headers: { accept: 'application/json', authorization: `Bearer ${credential.token}` },
-            signal: AbortSignal.timeout(config.catalogTimeoutMs),
-            redirect: 'error',
-          })
-          if (response.status === 401 && credential.kind === 'account') {
-            await ctx.get('deepseekAccount')?.rejectToken(credential.token)
-          }
-          if (!response.ok) throw new Error(`gateway catalog answered HTTP ${response.status}`)
-          next = preferredFirst(parseCatalog(await response.json()), config.preferredModels)
-        }
-        const key = JSON.stringify(next)
-        if (disposed || key === catalogKey) return
-        catalog = next
-        catalogKey = key
-        registration.replace([PROVIDER])
-        ctx.logger.info(`llm-vibedev-gateway: catalog lists ${next.length} chat model(s)`)
-      } catch (error) {
-        // A failed read keeps the last catalog: a flaky network must not empty every picker.
-        ctx.logger.warn('llm-vibedev-gateway: catalog read failed: %o', error)
+        let served: number
+        do {
+          served = readRequests
+          await readOnce()
+        } while (readRequests !== served && !disposed)
       } finally {
         reading = undefined
       }
     })()
     return reading
   }
+  // An empty model list reads the catalog again, at most once per gap, so listing models never waits
+  // on an unreachable gateway more often than that.
+  const refreshIfEmpty = async (): Promise<void> => {
+    if (catalog.length > 0 || disposed) return
+    if (reading === undefined && Date.now() - lastOnDemandRead < ON_DEMAND_READ_GAP_MS) return
+    lastOnDemandRead = Date.now()
+    await readCatalog()
+  }
 
   ctx.effect(() => {
     void readCatalog()
     const timer = setInterval(() => { void readCatalog() }, config.catalogRefreshMinutes * 60_000)
-    timer.unref?.()
+    timer.unref()
     return () => {
       disposed = true
       clearInterval(timer)

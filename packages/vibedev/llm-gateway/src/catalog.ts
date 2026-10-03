@@ -56,7 +56,7 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
 
 const strings = (value: unknown): string[] | undefined =>
-  Array.isArray(value) && value.every(item => typeof item === 'string') ? value as string[] : undefined
+  Array.isArray(value) && value.every(item => typeof item === 'string') ? value : undefined
 
 const positive = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined

@@ -298,7 +298,7 @@ export class VibeDevAccount extends DeepSeekAccount {
     if (previous !== undefined) {
       await previous.done
       // Disposal can close the provider while the previous attempt settles.
-      if (this.closed) throw new VibeDevAuthError('protocol')
+      if (this.isClosed()) throw new VibeDevAuthError('protocol')
       if (this.attempt !== previous) return this.getState()
     }
     const attempt: Attempt = {
@@ -446,7 +446,7 @@ export class VibeDevAccount extends DeepSeekAccount {
     })
     if (result !== undefined) return result
     if (failure instanceof AccountUnauthorizedError) await this.expireCredential(stored.refreshToken, lifetime)
-    throw failure ?? new VibeDevAuthError('storage')
+    throw failure instanceof Error ? failure : new VibeDevAuthError('storage')
   }
 
   /** Read the account once per access token at a time; a 401 refreshes and retries once. */
@@ -561,6 +561,9 @@ export class VibeDevAccount extends DeepSeekAccount {
     this.detailsLifetime.abort()
     this.detailsLifetime = new AbortController()
   }
+
+  /** Read `closed` afresh after an await; a property check would keep its earlier narrowing. */
+  private isClosed(): boolean { return this.closed }
 
   private changed(): void { for (const listener of this.listeners) listener() }
 
