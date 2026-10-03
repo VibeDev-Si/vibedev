@@ -24,6 +24,8 @@ import Schema from '@deepseek-ai/schemastery'
 import { resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-deepseek-account'
+import type {} from '@deepseek-ai/dsh-fs'
+import type {} from '@deepseek-ai/dsh-settings'
 import { GatewayAdapter } from './adapter.ts'
 import type { GatewayCredential } from './adapter.ts'
 import { parseCatalog } from './catalog.ts'
@@ -118,6 +120,12 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
   const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
+  // The Models page lists the account channel from the configurable-provider directory, with this
+  // entry's settings namespace as its address; it shows the row once the catalog has models.
+  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.llm.registerConfigurableProviders([
+    { provider: PROVIDER, displayName: config.displayName, settingsNs: ctx.fiber.entry?.options.id ?? name, settingsPath: [] },
+  ])
 
   let reading: Promise<void> | undefined
   let disposed = false

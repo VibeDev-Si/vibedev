@@ -68,6 +68,20 @@ describe('VibeDev Web defaults bundle', () => {
     expect(ours).toEqual({ ...upstream, port: { __jsExpr: 'ctx.webStartup.port ?? 3180' } })
   })
 
+  it('restates the web persona with the VibeDev identity and adds how VibeDev installs plugins', () => {
+    const upstream = rows(load(webAppPatch)).find(row => row.id === 'system-prompt')?.config as { personaSuffix: string; personaPrefix: string }
+    const ours = targeted.find(row => row.id === 'system-prompt')?.config as Record<string, string | boolean>
+    expect(ours.includeHarnessIdentity).toBe(false)
+    expect(ours.personaPrefix).toBe('You are a coding agent running in VibeDev, powered by the {{model}} model.')
+    expect(upstream.personaPrefix).toContain('{{model}}')
+    // The upstream suffix leads, so the model keeps its working directory.
+    expect(String(ours.personaSuffix).startsWith(upstream.personaSuffix)).toBe(true)
+    expect(ours.personaSuffix).toContain('vibedev-app plugin --profile desktop add <package>')
+    expect(ours.personaSuffix).toContain('never run that for VibeDev')
+    // Templates are strict: the only variables are the ones the system prompt defines.
+    expect([...String(ours.personaPrefix + ours.personaSuffix).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model', 'cwd'])
+  })
+
   it('only targets rows that dsh-web-app defines, so no patch is dropped with a warning', () => {
     const defined = new Set(rows(load(webAppPatch)).map(row => row.id))
     expect(targeted.map(row => row.id).filter(id => !defined.has(id))).toEqual([])

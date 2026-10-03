@@ -37,6 +37,12 @@
     },
     {
       "path": "../../credentials/deepseek-account"
+    },
+    {
+      "path": "../../fs/fs"
+    },
+    {
+      "path": "../../settings/settings"
     }
   ]
 }

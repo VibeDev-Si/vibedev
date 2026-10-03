@@ -30,6 +30,13 @@
 - id: llm-deepseek-account
   disabled: true
 
+# The DeepSeek API-key route goes too (user decision, 2026-10-03): without a key
+# it still listed models in the picker and a "DeepSeek" row on the Models page,
+# and every request failed. Users who want their own provider add it on the
+# Models page instead.
+- id: llm-deepseek
+  disabled: true
+
 # New sessions start on a gateway model rather than the DeepSeek API-key route,
 # which needs a key nobody has configured. Interim choice: the cheap, fast,
 # vision-capable DeepSeek V4 Flash on the gateway.

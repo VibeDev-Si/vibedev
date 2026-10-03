@@ -70,9 +70,17 @@ export function joinProviderDirectory(
 }
 
 /** One provider row the page renders. */
+/** VibeDev fork: one model of the account channel as the session model catalog lists it. */
+export interface AccountModel {
+  readonly id: string
+  readonly name: string
+}
+
 export interface ProviderRow {
   /** Account route has usable credentials for the configured inference origin. */
   accountAvailable?: boolean
+  /** VibeDev fork: the account channel's models, which its gateway (not this page) owns. */
+  accountModels?: readonly AccountModel[]
   /** The directory entry (route id, display name, settings address, live state). */
   entry: ProviderDirectoryEntry
   /** Whether any layer configures this provider (its profile resolves). */
@@ -218,9 +226,12 @@ export class ModelsSettingsStore {
     })
     if (rows.some(row => row.entry.provider === 'deepseek-account')) {
       const catalog = await this.ctx.remote.session.modelCatalog()
+      const accountGroup = catalog.ok ? catalog.value.groups.find(group => group.id === 'deepseek-account') : undefined
       for (const row of rows) {
-        if (row.entry.provider === 'deepseek-account') row.accountAvailable = catalog.ok
-          && catalog.value.groups.some(group => group.id === 'deepseek-account' && group.models.length > 0)
+        if (row.entry.provider !== 'deepseek-account') continue
+        row.accountAvailable = accountGroup !== undefined && accountGroup.models.length > 0
+        if (accountGroup === undefined) continue
+        row.accountModels = accountGroup.models.map(model => ({ id: model.id, name: model.name ?? model.id }))
       }
     }
     const refs = [...new Set(rows.filter(row => row.entry.provider !== 'deepseek-account').map(row => row.apiKeyEnv ?? deriveKeyRef(row.entry.provider)))]

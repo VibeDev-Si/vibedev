@@ -34,6 +34,7 @@ import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import { deriveKeyRef, protocolChoices } from './store.ts'
+import type { AccountModel } from './store.ts'
 import { protocolLabel } from './protocol-label.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
@@ -46,6 +47,34 @@ type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
 
 
 /** Props of {@link ProviderEditor}. */
+/**
+ * VibeDev fork: the account channel's models as its gateway lists them, read-only.
+ * @param props - the models and the section copy.
+ * @returns the model list section.
+ */
+function AccountModelList({ models, t }: { models: readonly AccountModel[]; t: (key: keyof typeof en) => string }): ReactNode {
+  return (
+    <section className={styles['modelCatalog']} aria-label={t('models')}>
+      <div className={styles['modelCatalogHeading']}>
+        <span className={styles['modelCatalogTitle']}>{t('models')}</span>
+        <span className={styles['modelCatalogMeta']}>{t('accountModelsMeta')}</span>
+      </div>
+      {models.length === 0
+        ? <p className={styles['modelEmpty']}>{t('accountModelsEmpty')}</p>
+        : (
+          <ul className={styles['modelList']}>
+            {models.map(model => (
+              <li key={model.id} className={styles['modelEntry']}>
+                <span className={styles['modelCatalogTitle']}>{model.name}</span>
+                {model.name === model.id ? null : <span className={styles['modelCatalogMeta']}>{model.id}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+    </section>
+  )
+}
+
 export interface ProviderEditorProps {
   /** Provider route id. */
   provider: string
@@ -73,6 +102,11 @@ export interface ProviderEditorProps {
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
   readOnly: boolean
+  /**
+   * VibeDev fork: the account channel's models from the session catalog. The gateway owns that list,
+   * so the account card shows it read-only instead of an editable model list.
+   */
+  accountModels?: readonly AccountModel[]
   /** Render only the credential field and actions, without provider settings. */
   credentialOnly?: boolean
   /** Require a newly entered credential before this editor can submit. */
@@ -185,6 +219,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const fallback = schema.getPath(namespace.value, settingsPath)
   const disabled = props.readOnly || busy
   const accountProvider = props.provider === 'deepseek-account'
+  // VibeDev fork: an account card with its gateway's models has nothing to edit.
+  const accountCatalog = accountProvider ? props.accountModels : undefined
   // Account settings use a configurable Cordis entry id.
   const layout = accountProvider ? 'deepseek' : layoutOf(namespace.ns)
   const keyRef = refFor(schema, namespace, settingsPath, props.provider)
@@ -373,6 +409,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       },
       onReset: () => { setDraft(current => schema.deletePath(current, ['models'])) },
     }
+    if (accountCatalog !== undefined) return <AccountModelList models={accountCatalog} t={t} />
     if (accountProvider) return <DeepSeekModelsEditor {...catalogProps}
       defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
       defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined} />
@@ -524,13 +561,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       <EditorFooter
         t={t}
         busy={busy}
-        submitDisabled={disabled || layout === 'unknown'
+        submitDisabled={disabled || layout === 'unknown' || accountCatalog !== undefined
           || (props.credentialOnly !== true && modelFailure !== undefined)
           || shownKeyFailure !== undefined
           || (props.credentialRequired === true && keyValue.length === 0)}
         submitLabelKey={props.submitLabelKey ?? 'apply'}
         submitBusyLabelKey={props.submitBusyLabelKey ?? 'applying'}
-        {...props.cancelLabelKey === undefined ? {} : { cancelLabelKey: props.cancelLabelKey }}
+        {...props.cancelLabelKey === undefined
+          ? accountCatalog === undefined ? {} : { cancelLabelKey: 'close' as const }
+          : { cancelLabelKey: props.cancelLabelKey }}
         onCancel={() => { props.onClose(false) }}
         onSubmit={() => { props.onSubmitCredential?.(); void apply() }}
       />
