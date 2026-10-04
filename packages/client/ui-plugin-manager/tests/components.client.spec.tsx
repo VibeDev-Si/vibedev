@@ -2013,6 +2013,31 @@ describe('plugin market page (VibeDev fork)', () => {
     expect(screen.getByText(en.empty)).toBeTruthy()
   })
 
+  it('lists the market first in the add menu, before installing by name and the contributed actions', () => {
+    const { actions } = renderTab({}, {}, {
+      'plugins.add.browse:': () => <p>Market body</p>,
+      'plugins.add.actions:': () => <MenuItemButton onSelect={() => {}}><span>Create a plugin</span></MenuItemButton>,
+    })
+    actions.hasBrowse.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: en.chooseAddMethod }))
+    const items = screen.getAllByRole('menuitem').map(item => item.textContent ?? '')
+    expect(items[0]).toContain(en.browseMarket)
+    expect(items[1]).toContain(en.installExisting)
+    expect(items[2]).toContain('Create a plugin')
+    fireEvent.click(screen.getByText(en.browseMarket))
+    expect(document.querySelector('[data-plugin-browse]')).not.toBeNull()
+    expect(screen.getByText('Market body')).toBeTruthy()
+    expect(actions.openInstall).not.toHaveBeenCalled()
+  })
+
+  it('offers no market row while no market is installed', () => {
+    const { actions } = renderTab()
+    fireEvent.click(screen.getByRole('button', { name: en.chooseAddMethod }))
+    expect(screen.queryByText(en.browseMarket)).toBeNull()
+    fireEvent.click(screen.getByText(en.installExisting))
+    expect(actions.openInstall).toHaveBeenCalledExactlyOnceWith()
+  })
+
   it('lets the market lead back itself, and shows a running install instead of the market', () => {
     const { actions, set } = renderTab({}, {}, {
       'plugins.add.browse:': (_view, owner) => (

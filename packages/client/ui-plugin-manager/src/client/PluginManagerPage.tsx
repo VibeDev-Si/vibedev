@@ -54,20 +54,25 @@ type ResolveText = PluginManagerFace['resolveText']
 type RowPhase = NonNullable<PackageRow['phase']>
 
 /** The primary action installs; the adjacent menu offers every add-plugin path. */
-function AddPluginMenu({ t, disabled, openInstall, renderSlot, onBrowse }: {
+function AddPluginMenu({ t, disabled, openInstall, renderSlot, browse }: {
   readonly t: Translate
   readonly disabled: boolean
   readonly openInstall: () => void
   readonly renderSlot: RenderConfig
-  /** VibeDev fork: open the plugin market a `plugins.add.browse` entry draws; the main button then opens it. */
-  readonly onBrowse?: () => void
+  /**
+   * VibeDev fork: the plugin market a `plugins.add.browse` entry draws. Asked
+   * when the button is pressed and when the menu opens, so a market installed
+   * after the page rendered is offered too; while there is one, the main
+   * button opens it.
+   */
+  readonly browse?: { readonly available: () => boolean; readonly open: () => void }
 }): ReactNode {
   const [open, setOpen] = useState(false)
   const onDismiss = (): void => { setOpen(false) }
   return (
     <span className={css.addGroup} role="group" aria-label={t('addPlugin')}>
       <Button variant="primary" size="sm" className={css.addPrimary} icon={<IconPlusOutlineRegular size={13} />}
-        disabled={disabled} onClick={() => { onDismiss(); (onBrowse ?? openInstall)() }}>
+        disabled={disabled} onClick={() => { onDismiss(); if (browse?.available() === true) browse.open(); else openInstall() }}>
         {t('addPlugin')}
       </Button>
       <Menu open={open} onClose={onDismiss} align="end" portal autoFocus listClassName={css.addMenu}
@@ -81,10 +86,10 @@ function AddPluginMenu({ t, disabled, openInstall, renderSlot, onBrowse }: {
             <IconChevronDownOutlineRegular size={12} aria-hidden="true" />
           </Button>
         )}>
-        {onBrowse === undefined
+        {browse?.available() !== true
           ? null
           : (
-            <MenuItemButton icon={<IconPlusOutlineRegular size={14} />} onSelect={() => { onDismiss(); onBrowse() }}>
+            <MenuItemButton icon={<IconPlusOutlineRegular size={14} />} onSelect={() => { onDismiss(); browse.open() }}>
               <span className={css.addMenuItem}>
                 <span>{t('browseMarket')}</span>
                 <span className={css.addMenuDescription}>{t('browseMarketDescription')}</span>
@@ -1480,8 +1485,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
               </Tooltip>
               {state.install.requestId === undefined
                 ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
-                  {...(props.hasBrowse() ? { onBrowse: () => { setView({ kind: 'browse' }) } } : {})} />
-                : <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />} disabled={!loaded} onClick={props.openInstall}>
+                  browse={{ available: () => props.hasBrowse(), open: () => { setView({ kind: 'browse' }) } }} />
+                : <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />} disabled={!loaded} onClick={() => { props.openInstall() }}>
                   {t('installViewTask')}
                 </Button>}
             </div>
