@@ -1,7 +1,7 @@
 {
   "name": "@vibedev/dsh-llm-gateway",
   "description": "VibeDev gateway models for the DSH account channel: the gateway catalog, per-model wire protocols, reasoning levels, and app-token authentication",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.1-alpha.1",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

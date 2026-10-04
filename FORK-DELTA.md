@@ -4,11 +4,12 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 `main` is an upstream release tag plus the VibeDev changes recorded here. The plan behind it lives outside the repo in
 `C:\vdp-tools\coordination\DSH-FORK-PLAN-1002.md`.
 
-- **Upstream base:** `dsh-v0.2.0-rc.2` (`639ed01539`). Remote `upstream` tracks deepseek-ai/deepseek-harness.
+- **Upstream base:** `dsh-v0.2.1-alpha.1` (`5badb15009`), merged over `dsh-v0.2.0-rc.2` on 2026-10-04 (see Merges below).
+  Remote `upstream` tracks deepseek-ai/deepseek-harness.
 - **Keep upstream identities that plugins depend on:** the `@deepseek-ai/*` package names, the runtime version, `DSH_*`
   variables, bundle row ids, the session format, and project-local `.dsh/` directories.
 - **Put VibeDev features in new packages** under `packages/vibedev/*`: `@vibedev/*` packages packed into the app with the
-  dsh release family and never published to npm. They carry the dsh family version (`0.2.0-rc.2` now), so an upstream merge
+  dsh release family and never published to npm. They carry the dsh family version (`0.2.1-alpha.1` now), so an upstream merge
   that moves the root version must move theirs too, or `release:pack` refuses the family.
 - **Override upstream bundle rows from our bundles.** Never edit `packages/bundle/*/cordis.patch.yml`; upstream adds rows to
   them in almost every release.
@@ -21,7 +22,6 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | Install name (exe, install dir, Start menu, uninstall entry) | DeepSeek Harness | VibeDev Next (while the current VibeDev Studio still installs as "VibeDev") | `electron-builder-config.mjs` |
 | Name shown in the app | DeepSeek Harness | VibeDev | locale files, About panel, client title |
 | Harness home | `~/.dsh` | `~/.vibedev-app` (default for `DSH_HOME`; an explicit `DSH_HOME` wins) | `apps/desktop/src/main.ts`, CLI shims |
-| Desktop Host port (also the sign-in callback port) | 19387 | 19487 | `apps/desktop-host/src/index.ts` |
 | Web port (`vibedev-app web`) | 3080 | 3180 | `@vibedev/dsh-web-defaults` |
 | OS URL scheme | `dsh://` | `vibedev-app://` | `main.ts`, `electron-builder-config.mjs` |
 | Electron package name (userData, updater cache) | `@deepseek-ai/dsh-desktop` | `@vibedev/app-desktop` | `electron-builder-config.mjs` `extraMetadata.name` |
@@ -52,7 +52,6 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | `scripts/check-workspace-constraints.ts` | `packages/vibedev/*` are not npm release members: they must use the `@vibedev` scope, must not be private, and omit `publishConfig` | Packed into the app, never published | No |
 | `scripts/release/families.ts` | The dsh family accepts `@vibedev/*` names | `release:pack` (and so Desktop packaging) includes the VibeDev packages; we never run `release:publish` | No |
 | `apps/desktop/src/main.ts` | `DSH_HOME` defaults to `~/.vibedev-app`; About name "VibeDev"; OS scheme `vibedev-app://`; while preparing each Host start, copies the sessions of an installed DeepSeek Harness (`~/.dsh`) into the VibeDev home with the new `src/vibedev-dsh-import.ts` (`VIBEDEV_DSH_IMPORT=0` turns it off). The importer reads upstream's session, attachment, projection-cache and workspace-store layouts directly, so an upstream merge that changes any of them must update it | Run alongside an installed DeepSeek Harness; brand; people who switch keep their history | Partly: a build-time home/scheme option |
-| `apps/desktop-host/src/index.ts` | Host port 19487 | Run alongside an installed DeepSeek Harness | Partly: a configurable port |
 | `apps/desktop/scripts/electron-builder-config.mjs` | Product name, scheme, artifact names, `extraMetadata.name`; one macOS `extendInfo` | Identity; upstream declared `extendInfo` twice, so `CFBundleLocalizations` was dropped | The `extendInfo` fix: yes |
 | `apps/desktop/scripts/package-macos.ts`, `package-target.ts`, `smoke-packaged-runtime.ts` | Packaged app path `VibeDev Next.app/.exe` | Follows the product name | No |
 | `apps/desktop/scripts/package-macos.ts`, `desktop-upload-plan.ts`, `desktop-build-version-discovery.ts`, `installed-update-distribution.ts` | Artifact prefix `vibedev-next-` | Every copy of the artifact name must match `artifactName` | Partly: one shared artifact-prefix constant |
@@ -66,7 +65,7 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | `packages/client/ui-settings-models/src/client/locales.ts` | First-run preview notice rewritten for VibeDev | Brand; placeholder copy awaiting the user's wording | No |
 | `packages/llm/llm/src/attribution.ts` | `APP_IDENTITY` = `vibedev-app` + `https://vibedev.jzsaas.com` | Provider requests identify VibeDev | No |
 | `scripts/client-build-environment.ts` | Official build title "VibeDev" | Brand; the official brand row is disabled by `@vibedev/dsh-web-defaults` | No |
-| `packages/client/ui-plugin-manager/src/client/` (`slot-contract.ts`, `navigation-store.ts`, `manager-store.ts`, `PluginManagerPage.tsx`, `index.ts`, `locales.ts`) | New root slot `plugins.add.browse`: when a plugin market fills it, Add plugin opens it as a page that keeps "Install by name or address" for the dialog; `openInstall(prefill)` on the page face and on `ctx.pluginNavigation` fills in the spec and the registry (a prefilled registry survives the Host's registry answer and is not remembered as the last used) | The plugin market lives inside Plugins → Add plugin (our dsh-market fork fills the slot) | Yes: a generic market slot |
+| `packages/client/ui-plugin-manager/src/client/` (`slot-contract.ts`, `navigation-store.ts`, `manager-store.ts`, `PluginManagerPage.tsx`, `index.ts`, `locales.ts`) | New root slot `plugins.add.browse`: when a plugin market fills it, Add plugin's main button opens it as a page that keeps "Install by name or address" for the dialog, and upstream's add menu (split button, `plugins.add.actions` rows) lists it first as "Browse the plugin market"; `openInstall(prefill)` on the page face and on `ctx.pluginNavigation` fills in the spec and the registry (a prefilled registry survives the Host's registry answer and is not remembered as the last used) | The plugin market lives inside Plugins → Add plugin (our dsh-market fork fills the slot) | Yes: a generic market slot |
 | `apps/desktop/resources/icon*.svg`, `icon*.png`, `tray-windows.ico`; `apps/desktop/installer/assets/*.png`; `apps/desktop/renderer/assets/welcome-brand.svg`; `apps/web/public/favicon*.svg`; `packages/client/ui-chat/src/client/chat/running-whale@2x.png`; `packages/client/ui-settings-account/src/client/assets/onboarding-{welcome,recharge}*.png` | VibeDev app icon (VibeDev Studio's chevron V on its dark tile), installer and welcome lockups with a Montserrat "VibeDev" wordmark, chevron running animation, interim first-run artwork (the tile in a cyan glow) until the account flow gets VibeDev screens; all generated by `scripts/vibedev/brand-assets.mjs` (tray icon by the existing `render:tray-icon`) | Brand | No |
 | `packages/client/ui-chat/src/client/chat/RunningWhaleTail.tsx` | Static rest path is the VibeDev chevrons | Matches the new running animation | No |
 | `apps/web/public/manifest.webmanifest` | Name and short name VibeDev | Brand | No |
@@ -78,3 +77,9 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | `packages/experimental/inspector/src/worker/bridge/endpoint.ts` | Inspector target title "VibeDev Host" | Brand | No |
 | `packages/client/ui-settings-models/src/client/` (`store.ts`, `ModelsSection.tsx`, `ProviderEditor.tsx`, `locales.ts`) | The account row keeps the account channel's models from the session catalog (`accountModels`) and its card lists them read-only instead of the editable DeepSeek model list | The gateway owns the VibeDev model list; a user-edited list would be ignored | No |
 | Tests and expected outputs under `apps/desktop/tests`, `apps/web/tests`, `packages/api/workspace-controller/tests`, `packages/llm/*/tests`, `packages/boot/app-boot/tests`, `packages/client/ui-chat/tests`, `packages/client/ui-model-selection/tests`, `packages/client/ui-conversation/tests`, `packages/client/ui-plugin-manager/tests`, `packages/client/ui-settings-account/tests`, `packages/client/ui-settings-models/tests`, `packages/bundle/web-app/tests`, `packages/subagent/subagent-codex/tests`, `scripts/*.spec.ts` | Follow the changes above | — | No |
+
+## Merges
+
+| Date | Upstream | Notes |
+|---|---|---|
+| 2026-10-04 | `dsh-v0.2.1-alpha.1` (266 commits over `dsh-v0.2.0-rc.2`) | Conflicts in 9 files. The Desktop Host now listens on an OS-assigned port upstream, so the fork's fixed port 19487 is gone (sign-in still works: the account sends the Host's actual origin as the callback, and the gateway accepts any loopback port). Upstream's split Add button and `plugins.add.actions` menu kept, with the market slot wired in. Upstream's new copy kept with VibeDev names (Web GUI description, account `noResponse`). `@vibedev/*` packages moved to the family version. The `llm-pi-ai` files copied into `@vibedev/dsh-llm-gateway` are unchanged upstream. |

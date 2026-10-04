@@ -1,7 +1,7 @@
 {
   "name": "@vibedev/dsh-web-search-gateway",
   "description": "VibeDev gateway web search for the DSH web capability seam (ctx.web), authenticated like the gateway models",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.1-alpha.1",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

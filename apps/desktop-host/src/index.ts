@@ -27,8 +27,7 @@ async function main(): Promise<void> {
     profile: 'desktop',
     resolvedProfile: { profile, installAnchor },
     patchFiles: [],
-    // VibeDev fork: 19487 instead of 19387, so an installed DeepSeek Harness can run alongside.
-    args: ['--no-open', '--port', '19487'],
+    args: ['--no-open', '--port', '0'],
     ...(process.argv[5] === undefined ? {} : {
       packageManager: {
         command: process.execPath,

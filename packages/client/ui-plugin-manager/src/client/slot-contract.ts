@@ -88,8 +88,16 @@ export interface PluginBrowseOwnerProps {
   readonly close: () => void
 }
 
+/** Add-plugin menu actions, independent of any selected bundle or Session. */
+export interface PluginAddActionsProps {
+  /** Close the add-plugin menu before starting the contributed action. */
+  readonly onDismiss: () => void
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /** Additional MenuItemButton rows after installation: 72px high, with a title and a description capped at two lines. */
+    'plugins.add.actions': { kind: 'list'; scope: 'root'; owner: PluginAddActionsProps }
     /**
      * VibeDev fork: a plugin market page. When an entry fills it, Add plugin
      * opens this page instead of the install dialog, and the page keeps a way
