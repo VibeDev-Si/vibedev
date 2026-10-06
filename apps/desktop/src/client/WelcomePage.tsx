@@ -35,6 +35,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const input = useRef<HTMLInputElement>(null)
   const keyButton = useRef<HTMLButtonElement>(null)
   const focusEntry = useRef(false)
+  const continueRequested = useRef(false)
 
   function navigate(next: Page) {
     pageRef.current = next
@@ -47,6 +48,20 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     setStarting(false)
     setCopyFeedback({ status: 'idle' })
     navigate(state.attempt === null || state.attempt.phase === 'cancelled' ? 'entry' : 'account')
+  }
+  /**
+   * Continue into the workspace when the account turns out to hold a credential while the entry is shown: the
+   * startup check can precede a stored sign-in that only becomes visible later. Only the entry asks, so an API-key
+   * draft or a sign-in waiting in the browser is never interrupted. One accepted request per window; a declined,
+   * failed, or unanswered one leaves the entry ready to ask again when a later state holds the credential.
+   */
+  function continueWithStoredCredential() {
+    if (continueRequested.current) return
+    continueRequested.current = true
+    void api.continueWithStoredCredential().then(
+      (accepted) => { if (!accepted) continueRequested.current = false },
+      () => { continueRequested.current = false },
+    )
   }
 
   useEffect(() => {
@@ -64,6 +79,9 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     const stop = api.onAccountState((state) => {
       revision.current++
       takeNotice()
+      if (pageRef.current === 'entry' && state.status === 'credential-stored' && state.attempt === null) {
+        continueWithStoredCredential()
+      }
       showAccount(state)
     })
     return () => { mounted.current = false; stop() }

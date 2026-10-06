@@ -47,6 +47,7 @@ const operations = {
   copySignInLink: async () => undefined,
   saveApiKey: () => Promise.resolve({ ok: true as const }),
   skip: () => Promise.resolve(),
+  continueWithStoredCredential: () => Promise.resolve(true),
 }
 
 describe('desktop welcome window', () => {
@@ -116,9 +117,11 @@ describe('desktop welcome window', () => {
     electron.create.mockReturnValue(window)
     const saveApiKey = vi.fn(operations.saveApiKey)
     const skip = vi.fn(operations.skip)
+    const continueWithStoredCredential = vi.fn(operations.continueWithStoredCredential)
     const copySignInLink = vi.fn(operations.copySignInLink)
     const takeNotice = vi.fn(async () => 'session-expired' as const)
-    await openWelcomeWindow(resolveDesktopLocale('en'), { ...operations, saveApiKey, skip, copySignInLink, takeNotice })
+    await openWelcomeWindow(resolveDesktopLocale('en'),
+      { ...operations, saveApiKey, skip, continueWithStoredCredential, copySignInLink, takeNotice })
     const own = { sender: window.webContents, senderFrame: window.webContents.mainFrame }
     const take = electron.handlers.get(WELCOME_IPC.takeNotice)!
     await expect(take({ ...own, senderFrame: {} })).rejects.toThrow('unowned frame')
@@ -133,6 +136,12 @@ describe('desktop welcome window', () => {
     expect(await save(own, 'sk-test')).toEqual({ ok: true })
     await electron.handlers.get(WELCOME_IPC.skip)!(own)
     expect(skip).toHaveBeenCalledOnce()
+    const continueStored = electron.handlers.get(WELCOME_IPC.continueStored)!
+    await expect(continueStored({ ...own, senderFrame: {} })).rejects.toThrow('unowned frame')
+    expect(continueWithStoredCredential).not.toHaveBeenCalled()
+    // The renderer reads this answer: only an accepted continuation may spend its single request.
+    await expect(continueStored(own)).resolves.toBe(true)
+    expect(continueWithStoredCredential).toHaveBeenCalledOnce()
     const copy = electron.handlers.get(WELCOME_IPC.copyLink)!
     await expect(copy({ ...own, senderFrame: {} }, 'attempt')).rejects.toThrow('unowned frame')
     await expect(copy(own, 42)).rejects.toThrow('invalid attempt')

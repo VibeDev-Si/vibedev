@@ -1256,6 +1256,22 @@ async function main(): Promise<void> {
           await enterWorkspace()
           return { ok: true }
         },
+        continueWithStoredCredential: async () => {
+          // The renderer asks only after it received a stored state with no attempt while the entry was shown, but
+          // that answer must still hold here: the account can have signed out or started another attempt since the
+          // push. Re-read it and decline anything else, so this never opens a workspace the account no longer backs.
+          // A decline lets the renderer wait for a later state instead of spending its single request on a stale one.
+          const window = welcomeWindow
+          const account = welcomeAccount()
+          if (quitting || enteredWorkspace || window === undefined || window.isDestroyed() || account === undefined) return false
+          const state = await account.state()
+          // A window closed, replaced, or already spent on an entered workspace (which clears it) declines as well.
+          if (welcomeWindow !== window || state.status !== 'credential-stored' || state.attempt !== null) return false
+          // An automatic continuation, like a completed sign-in: it does not replay the startup focus policy.
+          await enterWorkspace({ activate: false })
+          // Quitting or a recovery dialog makes enterWorkspace return early; then nothing opened and the request failed.
+          return enteredWorkspace
+        },
         skip: enterWorkspace,
       })
       const window = welcomeWindow

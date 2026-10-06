@@ -25,6 +25,7 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
     ...resolveDesktopLocale(language),
     saveApiKey: vi.fn<(value: string) => Promise<WelcomeSaveResult>>().mockResolvedValue({ ok: true }),
     skip: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    continueWithStoredCredential: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   }
   const mounted = render(<Welcome api={api} />)
   const input = document.querySelector('input')!
@@ -340,4 +341,77 @@ it('reports each return to the welcome entry once, including account cancellatio
   fireEvent.click(view.button('#sign-in'))
   await act(async () => { pending.resolve({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null }) })
   expect(view.api.analytics.mock.calls.map(([action]) => action)).toEqual(['auth_page_click', 'auth_page_view', 'auth_page_click', 'auth_page_view'])
+})
+
+describe('desktop welcome stored-credential continuation', () => {
+  const LINKS = { usageUrl: 'https://example.test/usage', topUpUrl: 'https://example.test/top_up' }
+  const stored: AccountView = { status: 'credential-stored', attempt: null, links: LINKS }
+
+  function mounted() {
+    const view = mount()
+    const publish = view.api.onAccountState.mock.calls[0]![0]
+    return { view, publish }
+  }
+
+  it('continues once when the stored account appears while the entry is shown', () => {
+    const { view, publish } = mounted()
+    expect(view.api.continueWithStoredCredential).not.toHaveBeenCalled()
+    act(() => { publish(stored) })
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledOnce()
+    expect(view.api.continueWithStoredCredential.mock.calls[0]).toEqual([])
+    expect(view.button('#sign-in').closest('[hidden]')).toBeNull()
+    act(() => { publish(stored) })
+    act(() => { publish({ ...stored }) })
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the entry when the account is signed out or a sign-in waits in the browser', () => {
+    const { view, publish } = mounted()
+    act(() => { publish({ status: 'signed-out', attempt: null, links: LINKS }) })
+    act(() => { publish({ status: 'signed-out', links: LINKS,
+      attempt: { id: 'waiting' as NonNullable<AccountView['attempt']>['id'], phase: 'waiting-browser' } }) })
+    expect(view.api.continueWithStoredCredential).not.toHaveBeenCalled()
+    expect(view.button('#auth-cancel').closest('[hidden]')).toBeNull()
+  })
+
+  it('leaves an API-key draft alone and continues from the entry afterwards', () => {
+    const { view, publish } = mounted()
+    fireEvent.click(view.button('#api-key'))
+    view.enterKey('sk-draft')
+    act(() => { publish(stored) })
+    expect(view.api.continueWithStoredCredential).not.toHaveBeenCalled()
+    expect(view.input.value).toBe('sk-draft')
+    fireEvent.click(view.button('#back-to-login'))
+    act(() => { publish(stored) })
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledOnce()
+    expect(view.api.saveApiKey).not.toHaveBeenCalled()
+    expect(view.api.skip).not.toHaveBeenCalled()
+  })
+
+  it('retries only after a request that never reached the main process', async () => {
+    const { view, publish } = mounted()
+    view.api.continueWithStoredCredential.mockRejectedValueOnce(new Error('closed channel'))
+    act(() => { publish(stored) })
+    await act(async () => {})
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledOnce()
+    act(() => { publish(stored) })
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledTimes(2)
+    act(() => { publish(stored) })
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits for a later stored state after the main process declines, then stops once it accepts', async () => {
+    const { view, publish } = mounted()
+    view.api.continueWithStoredCredential.mockResolvedValueOnce(false)
+    act(() => { publish(stored) })
+    await act(async () => {})
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledOnce()
+    act(() => { publish(stored) })
+    await act(async () => {})
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledTimes(2)
+    act(() => { publish(stored) })
+    await act(async () => {})
+    expect(view.api.continueWithStoredCredential).toHaveBeenCalledTimes(2)
+    expect(view.button('#sign-in').closest('[hidden]')).toBeNull()
+  })
 })

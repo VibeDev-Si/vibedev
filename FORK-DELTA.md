@@ -4,7 +4,7 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 `main` is an upstream release tag plus the VibeDev changes recorded here. The plan behind it lives outside the repo in
 `C:\vdp-tools\coordination\DSH-FORK-PLAN-1002.md`.
 
-- **Upstream base:** `dsh-v0.2.1-alpha.1` (`5badb15009`), merged over `dsh-v0.2.0-rc.2` on 2026-10-04 (see Merges below).
+- **Upstream base:** `dsh-v0.2.1-alpha.1`, merged over `dsh-v0.2.0-rc.2` on 2026-10-04 (see Merges below).
   Remote `upstream` tracks deepseek-ai/deepseek-harness.
 - **Keep upstream identities that plugins depend on:** the `@deepseek-ai/*` package names, the runtime version, `DSH_*`
   variables, bundle row ids, the session format, and project-local `.dsh/` directories.
@@ -89,6 +89,7 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | `packages/client/ui-model-selection/src/client/provider-order.ts`, `packages/client/ui-settings-models/src/client/store.ts` | `vibedev-gateway` sorts before the DeepSeek account and official routes in the pickers and on the Models page | VibeDev models lead | No |
 | `packages/api/session-controller/src/index.ts` | `initializeDefaultModel` (run after a DeepSeek sign-in) keeps a default on another route that is routable; the DeepSeek routes keep upstream's rule | Signing in to the second account must not move the user off VibeDev | Yes: "keep a working default" |
 | `apps/desktop/src/main.ts`, `apps/desktop/src/welcome-backend.ts` (+ new `src/vibedev-account-backend.ts`) | When the VibeDev account plugin serves the main account (`/api/dsh-vibedev/account` with `primary`), the welcome window signs in to it: its start, cancel, copy-link and close follow that account, a poll of the plugin's routes stands in for the account stream, and either account signed in counts as logged in. The DeepSeek account stream still opens the browser for a DeepSeek sign-in started in the app | The welcome window is the first run; VibeDev is the main account | No |
+| `apps/desktop/src/welcome-api.ts`, `preload-welcome.ts`, `welcome-window.ts`, `client/WelcomePage.tsx`, `main.ts` | A stored credential that becomes visible after the entry page opens asks the native main process to continue. The main process rechecks the current account and returns whether the workspace actually opened; a declined request can retry on a later state. API-key drafts and pending browser sign-ins are not interrupted, and no skip preference is written | Startup credential recovery must not require another browser sign-in | Partly: stored-account continuation is generic |
 | Tests and expected outputs under `apps/desktop/tests`, `apps/web/tests`, `packages/api/workspace-controller/tests`, `packages/llm/*/tests`, `packages/boot/app-boot/tests`, `packages/client/ui-chat/tests`, `packages/client/ui-model-selection/tests`, `packages/client/ui-conversation/tests`, `packages/client/ui-plugin-manager/tests`, `packages/client/ui-settings-account/tests`, `packages/client/ui-settings-models/tests`, `packages/bundle/web-app/tests`, `packages/subagent/subagent-codex/tests`, `scripts/*.spec.ts` | Follow the changes above | — | No |
 
 ## Merges

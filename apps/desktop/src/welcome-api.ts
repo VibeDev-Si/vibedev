@@ -10,6 +10,7 @@ export const WELCOME_IPC = {
   analytics: 'dsh-welcome:analytics',
   analyticsEnabled: 'dsh-welcome:analytics-enabled',
   skip: 'dsh-welcome:skip',
+  continueStored: 'dsh-welcome:continue-stored',
   start: 'dsh-welcome:start',
   cancel: 'dsh-welcome:cancel',
   copyLink: 'dsh-welcome:copy-link',
@@ -51,6 +52,13 @@ export interface WelcomeOperations {
    * @returns completion after the workspace opens.
    */
   skip(): Promise<void>
+  /**
+   * Continue into the workspace when the account's stored credential became visible after the entry page opened.
+   * The operation is not a skip: the main process re-reads the account and declines unless it is stored with no
+   * sign-in attempt, so a state that moved on while the request travelled cannot open the workspace.
+   * @returns whether the workspace opened; false asks the caller to wait for a later account state.
+   */
+  continueWithStoredCredential(): Promise<boolean>
 }
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */

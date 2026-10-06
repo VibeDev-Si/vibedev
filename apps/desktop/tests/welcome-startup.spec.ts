@@ -6,6 +6,7 @@ import type { BrowserWindowConstructorOptions } from 'electron'
 import type { DesktopLocale } from '../src/locale.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { WelcomeOperations } from '../src/welcome-api.ts'
+import type { VibeDevAccountBackend } from '../src/vibedev-account-backend.ts'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 
 const state = vi.hoisted(() => ({
@@ -19,6 +20,9 @@ const state = vi.hoisted(() => ({
   accountState: vi.fn<() => Promise<AccountView>>().mockResolvedValue({
     status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' },
   }),
+  /** VibeDev: the built-in account plugin's backend, and the account read it answers with. */
+  vibedevAccount: undefined as VibeDevAccountBackend | undefined,
+  vibedevState: { status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } } as AccountView,
   quit: vi.fn(),
   startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/?token=test', injections: [] }),
   stopHost: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -130,6 +134,8 @@ vi.mock('../src/welcome-backend.ts', () => ({
       return { loggedIn: false, hasApiKey: state.hasApiKey, writable: true, localePreference: state.preference }
     },
     save: async () => ({ ok: true }),
+    // Only a test that installs the plugin's backend stands in for the built-in VibeDev account.
+    ...state.vibedevAccount === undefined ? {} : { vibedevAccount: async () => state.vibedevAccount },
     account: {
       watch: (listener: (value: AccountView) => void, _failed: () => void, expired: () => void) => {
         state.accountListener = listener
@@ -177,6 +183,7 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.preference = 'zh'
   state.hasApiKey = false
   state.operations = undefined
+  state.vibedevAccount = undefined
   state.accountState.mockResolvedValue({ status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } })
   if (updated) vi.stubGlobal('process', { ...process, platform: 'win32', argv: ['desktop', '--updated'] })
   vi.useFakeTimers()
@@ -298,4 +305,56 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.focusWorkspace).toHaveBeenCalledOnce()
 
+})
+
+it('continues into the workspace only for a VibeDev account re-read as stored', async () => {
+  vi.resetModules()
+  vi.clearAllMocks()
+  state.preference = 'zh'
+  state.hasApiKey = false
+  state.operations = undefined
+  state.accountState.mockResolvedValue({ status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } })
+  const links = { usageUrl: 'https://vibedev.example/usage', topUpUrl: 'https://vibedev.example/purchase' }
+  state.vibedevState = { status: 'signed-out', attempt: null, links }
+  state.vibedevAccount = {
+    state: async () => state.vibedevState,
+    watch: () => () => {},
+    start: async () => state.vibedevState,
+    cancel: async () => state.vibedevState,
+    signOut: async () => state.vibedevState,
+  }
+  vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
+  vi.stubEnv('DSH_DESKTOP_DEV_PROJECT_DIR', '/development-profile')
+  vi.stubEnv('DSH_DESKTOP_NODE_BINARY', '/runtime/node')
+  vi.stubEnv('DSH_DESKTOP_PRIMARY_RUNTIME_DIR', '/runtime/primary-runtime')
+  vi.stubEnv('DSH_DESKTOP_DSH_DIR', '/runtime/dsh')
+  vi.stubEnv('DSH_DESKTOP_PNPM_ENTRY', '/runtime/pnpm')
+  vi.stubEnv('DSH_DESKTOP_HOST_INSPECT_PORT', undefined)
+  vi.stubEnv('DSH_DESKTOP_OPEN_DEVTOOLS', '0')
+  vi.stubEnv('DSH_DESKTOP_MANDATORY_UPDATE_CONFIG', undefined)
+  vi.stubEnv('DSH_DESKTOP_UPDATE_JOURNAL_DIR', undefined)
+  try {
+    await import('../src/main.ts')
+    await vi.waitFor(() => { expect(state.operations).toBeDefined() })
+    // The renderer asks after a stored push; the account can already have moved on, so the request is refused and
+    // the renderer stays free to ask again for a state this process can act on.
+    await expect(state.operations!.continueWithStoredCredential()).resolves.toBe(false)
+    expect(state.showInactiveWorkspace).not.toHaveBeenCalled()
+    state.vibedevState = { status: 'signed-out', links,
+      attempt: { id: 'pending' as NonNullable<AccountView['attempt']>['id'], phase: 'waiting-browser' } }
+    await expect(state.operations!.continueWithStoredCredential()).resolves.toBe(false)
+    expect(state.showInactiveWorkspace).not.toHaveBeenCalled()
+    expect(state.showWorkspace).not.toHaveBeenCalled()
+    state.vibedevState = { status: 'credential-stored', attempt: null, links }
+    await expect(state.operations!.continueWithStoredCredential()).resolves.toBe(true)
+    expect(state.showInactiveWorkspace).toHaveBeenCalledOnce()
+    expect(state.showWorkspace).not.toHaveBeenCalled()
+    expect(state.closeWelcome).toHaveBeenCalledOnce()
+    // The workspace is already entered: a later request neither replays the entry nor reports an accepted one.
+    await expect(state.operations!.continueWithStoredCredential()).resolves.toBe(false)
+    expect(state.showInactiveWorkspace).toHaveBeenCalledOnce()
+    expect(state.closeWelcome).toHaveBeenCalledOnce()
+  } finally {
+    state.vibedevAccount = undefined
+  }
 })
