@@ -1,6 +1,6 @@
 /** The CLI and manager share package reconciliation, path anchoring and diagnostics. */
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { PassThrough } from 'node:stream'
@@ -958,4 +958,235 @@ it('uses application-owned executable arguments and environment for package oper
   expect(command.run).toHaveBeenLastCalledWith(runtime.command,
     [...runtime.args, 'view', 'example', 'name', 'version', 'description', 'dsh', '--json', '--config.fetch-retries=0'],
     expect.objectContaining({ env: expect.objectContaining(runtime.env) as unknown }))
+})
+
+// pnpm 11 approves a version its release-age policy refused by appending it to the profile's
+// `minimumReleaseAgeExclude`, which it then reads with an earlier same-package entry deciding the
+// package: without folding, the approved version stays hidden and the next install refuses again.
+/** The refusal pnpm prints for a version its release-age policy held back. */
+const AGE_REFUSAL = 'ERR_PNPM_NO_MATURE_MATCHING_VERSION  Some versions do not meet the minimumReleaseAge constraint:\n'
+/** An entry an earlier run recorded, plus the exact entry this run appends for the version it approved. */
+const SHADOWED_EXCLUDES = "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n  - 'kit@1.1.0'\n"
+
+function workspaceSettings(dir: string): string {
+  return readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')
+}
+
+/** Install runs the fake pnpm was asked for, excluding the lookup and the repair install. */
+function installRuns(): number {
+  return command.run.mock.calls.filter((call) => {
+    const argv = call[1] as readonly string[]
+    return argv.indexOf('view') === -1 && !argv.includes('--frozen-lockfile') && !argv.includes('--config.lockfile=false')
+  }).length
+}
+
+it('folds release-age exemptions an earlier run left shadowed before pnpm reads them', async () => {
+  const { dir, context, pnpm } = fixture()
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), "minimumReleaseAgeExclude:\n  - 'kit@1.0.0||1.0.1'\n  - 'kit@1.1.0'\n")
+  let pnpmSaw: string | undefined
+  pnpm.mutate = (target) => { pnpmSaw = workspaceSettings(target) }
+  expect(await runProfilePnpm(context, ['add', 'kit@1.1.0'], { execution: 'service', outputBytes: 200 })).toMatchObject({ exitCode: 0 })
+  // The run reads one entry holding every version, so the appended exact entry can no longer be hidden.
+  expect(pnpmSaw).toContain("'kit@1.0.0||1.0.1||1.1.0'")
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.0.1||1.1.0'")
+})
+
+it('retries once after pnpm recorded the version it refused, from the restored files, and activates the bundle', async () => {
+  const { dir, context, pnpm } = fixture()
+  const originalManifest = readFileSync(join(dir, 'package.json'), 'utf8')
+  const retrySaw: { manifest?: string | undefined; lockfile?: string | undefined } = {}
+  let runs = 0
+  pnpm.exitCode = 1
+  pnpm.output = AGE_REFUSAL
+  pnpm.mutate = (target) => {
+    runs += 1
+    if (runs > 1) {
+      retrySaw.manifest = readFileSync(join(target, 'package.json'), 'utf8')
+      retrySaw.lockfile = existsSync(join(target, 'pnpm-lock.yaml')) ? readFileSync(join(target, 'pnpm-lock.yaml'), 'utf8') : undefined
+      install(target, 'kit')
+      return
+    }
+    // The refused run recorded the version it approved and left a partly rewritten manifest behind.
+    writeFileSync(join(target, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES)
+    writeFileSync(join(target, 'package.json'), '{"name":"refused-run"}\n')
+    pnpm.exitCode = 0
+  }
+  const outcome = await runPluginCommand(context, ['add', 'kit@1.1.0'], { execution: 'service', outputBytes: 200 })
+  expect(outcome).toMatchObject({ exitCode: 0 })
+  expect(runs).toBe(2)
+  // The retry is a whole operation: it starts from the files the refused run rewrote, and it
+  // activates what it installed.
+  expect(retrySaw.manifest).toBe(originalManifest)
+  expect(retrySaw.lockfile).toBeUndefined()
+  expect(readProfileManifest('test', dir).dsh?.profile?.bundles).toEqual(['kit'])
+  // The settings keep the merged entry, both runs kept their log, and no run record survives.
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+  expect(readdirSync(join(dir, '.plugin-manager', 'logs'))).toHaveLength(2)
+  expect(existsSync(join(dir, '.plugin-manager', 'run.json'))).toBe(false)
+})
+
+it('reports the retry\'s own failure instead of turning a refusal into a success', async () => {
+  const { dir, context, pnpm } = fixture()
+  pnpm.exitCode = 1
+  pnpm.output = AGE_REFUSAL
+  pnpm.mutate = (target) => { writeFileSync(join(target, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES) }
+  const outcome = await runProfilePnpm(context, ['add', './extra'], { execution: 'service', outputBytes: 200 })
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(outcome.output).toContain('NO_MATURE_MATCHING_VERSION')
+  expect(installRuns()).toBe(2)
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+  // A refused install leaves the profile usable: the next operation runs normally.
+  pnpm.exitCode = 0
+  pnpm.output = ''
+  pnpm.mutate = () => {}
+  expect(await runProfilePnpm(context, ['list'], { execution: 'service', outputBytes: 200 })).toMatchObject({ exitCode: 0 })
+})
+
+it('does not retry a refusal pnpm recorded no version for, and grants nothing itself', async () => {
+  const { dir, context, pnpm } = fixture()
+  const settings = "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n"
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), settings)
+  pnpm.exitCode = 1
+  pnpm.output = AGE_REFUSAL
+  const outcome = await runProfilePnpm(context, ['add', 'kit@9.9.9'], { execution: 'service', outputBytes: 200 })
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(installRuns()).toBe(1)
+  expect(workspaceSettings(dir)).toBe(settings)
+})
+
+it('does not retry a failure that is not the release-age refusal', async () => {
+  const { dir, context, pnpm } = fixture()
+  pnpm.exitCode = 1
+  pnpm.output = 'ERR_PNPM_FETCH_404  GET https://registry.example/kit: Not Found - 404\n'
+  pnpm.mutate = (target) => { writeFileSync(join(target, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES) }
+  const outcome = await runProfilePnpm(context, ['add', './extra'], { execution: 'service', outputBytes: 200 })
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(installRuns()).toBe(1)
+  // The fold still lands, so the person's own retry reads the corrected policy.
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+})
+
+it('does not retry a run the silence bound terminated', async () => {
+  const { dir, context } = fixture()
+  const child = silentChild(AGE_REFUSAL)
+  const kill = child.kill
+  // The version pnpm approved appears while the run is being terminated, so the fold is the only
+  // thing that could justify a retry — and a terminated run's exit status says nothing.
+  child.kill = () => {
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES)
+    return kill?.() ?? false
+  }
+  command.run.mockImplementationOnce(() => child)
+  const outcome = await runProfilePnpm(context, ['add', './extra'], { execution: 'service', outputBytes: 200, idleTimeoutMs: 20 })
+  expect(outcome).toMatchObject({ exitCode: 1, timedOut: true })
+  expect(installRuns()).toBe(1)
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+})
+
+it('does not retry a run the caller withdrew', async () => {
+  const { context, pnpm } = fixture()
+  const withdrawn = new AbortController()
+  pnpm.exitCode = 1
+  pnpm.output = AGE_REFUSAL
+  pnpm.mutate = (target) => {
+    writeFileSync(join(target, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES)
+    withdrawn.abort()
+  }
+  const outcome = await runProfilePnpm(context, ['add', './extra'], {
+    execution: 'service', outputBytes: 200, signal: withdrawn.signal,
+  })
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(installRuns()).toBe(1)
+})
+
+it('leaves the retry to the person on the CLI, whose terminal owns pnpm\'s output', async () => {
+  const { dir, context, pnpm } = fixture()
+  const seen: string[] = []
+  pnpm.exitCode = 1
+  pnpm.output = AGE_REFUSAL
+  pnpm.mutate = (target) => { writeFileSync(join(target, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES) }
+  const outcome = await runProfilePnpm(context, ['add', './extra'], {
+    execution: 'cli', outputBytes: 200, onOutput: (text) => { seen.push(text) },
+  })
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(installRuns()).toBe(1)
+  expect(seen.join('')).toContain('re-run this command')
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+})
+
+it('warns and installs anyway when the profile settings cannot be read', async () => {
+  const { dir, context, pnpm } = fixture()
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'minimumReleaseAgeExclude: [\n')
+  const seen: string[] = []
+  pnpm.mutate = (target) => { install(target, 'extra') }
+  const outcome = await runProfilePnpm(context, ['add', './extra'], {
+    execution: 'service', outputBytes: 200, onOutput: (text) => { seen.push(text) },
+  })
+  expect(outcome).toMatchObject({ exitCode: 0 })
+  expect(seen.join('')).toContain('could not read pnpm\'s release-age exemptions')
+  expect(readProfileManifest('test', dir).dsh?.profile?.bundles).toEqual(['extra'])
+})
+
+// A recorded run whose own process ended may be an orphan pnpm tree that is still writing the
+// profile, so the policy is folded only once activeRecordedRun has established quiescence.
+it('refuses an active recorded run without reading or folding the release-age policy', async () => {
+  const { dir, context } = fixture()
+  treeWait.skip = true
+  // Duplicates a fold would repair: the refusal must leave them exactly as they are.
+  const settings = "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n  - 'kit@1.1.0'\n"
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), settings)
+  mkdirSync(join(dir, '.plugin-manager'), { recursive: true })
+  const record = JSON.stringify({ pid: process.pid, grouped: false })
+  writeFileSync(runRecord(dir), record)
+  const outcome = await runProfilePnpm(context, ['add', './extra'], { execution: 'service', outputBytes: 8192 })
+  expect(outcome.exitCode).toBe(1)
+  expect(command.run).not.toHaveBeenCalled()
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(settings)
+  expect(readFileSync(runRecord(dir), 'utf8')).toBe(record)
+})
+
+it('leaves the release-age policy untouched when the pre-install check refuses the spec', async () => {
+  const { home, dir, context } = fixture()
+  const settings = "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n  - 'kit@1.1.0'\n"
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), settings)
+  writePathSpec(home, '>=999.0.0')
+  const outcome = await runProfilePnpm(context, ['add', './plugin'], { execution: 'service', outputBytes: 8192 })
+  // A refused spec never reaches pnpm, so the profile's policy is exactly what its author wrote.
+  expect(outcome).toMatchObject({ exitCode: 1 })
+  expect(outcome.output).toContain('installation rejected')
+  expect(command.run).not.toHaveBeenCalled()
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(settings)
+})
+
+it('leaves the release-age policy untouched when the caller withdrew before the run started', async () => {
+  const { dir, context } = fixture()
+  const settings = "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n  - 'kit@1.1.0'\n"
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), settings)
+  command.run.mockImplementationOnce(() => Object.assign(
+    Promise.reject(Object.assign(new Error('canceled before start'), { code: 'ABORT_ERR' })),
+    { stdout: null, stderr: null, nodeChildProcess: new EventEmitter() },
+  ))
+  await expect(runProfilePnpm(context, ['add', './extra'], {
+    execution: 'service', outputBytes: 8192, signal: AbortSignal.abort(),
+  })).rejects.toThrow('canceled before start')
+  expect(readFileSync(join(dir, 'pnpm-workspace.yaml'), 'utf8')).toBe(settings)
+  expect(existsSync(runRecord(dir))).toBe(false)
+})
+
+it('folds what a run recorded even when the run itself fails afterwards', async () => {
+  const { dir, context } = fixture()
+  writeFileSync(join(dir, 'pnpm-workspace.yaml'), "minimumReleaseAgeExclude:\n  - 'kit@1.0.0'\n")
+  command.run.mockImplementationOnce(() => {
+    // pnpm recorded the version it approved, then the run ended without a clean exit.
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), SHADOWED_EXCLUDES)
+    return Object.assign(
+      Promise.reject(new Error('canceled mid-run')),
+      { stdout: null, stderr: null, nodeChildProcess: new EventEmitter() },
+    )
+  })
+  await expect(runProfilePnpm(context, ['add', './extra'], { execution: 'service', outputBytes: 8192 }))
+    .rejects.toThrow('canceled mid-run')
+  // The fold belongs to the run that started, so it happens on the failing path too.
+  expect(workspaceSettings(dir)).toContain("'kit@1.0.0||1.1.0'")
+  expect(existsSync(runRecord(dir))).toBe(false)
 })

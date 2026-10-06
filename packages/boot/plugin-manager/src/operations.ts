@@ -13,6 +13,7 @@ import {
 } from '@deepseek-ai/dsh-app-boot'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { parseInstallSpec } from './install-spec.ts'
+import { normalizeReleaseAgePolicy } from './release-age-policy.ts'
 import { awaitTreeGone, leadsOwnGroup, treeAlive, type RunTree } from './run-tree.ts'
 import { incompatiblePlugin } from './failure.ts'
 import type { IncompatiblePlugin, PackageResult, Registry } from './types.ts'
@@ -271,15 +272,115 @@ function bundleComponentManifests(manifest: ProfileManifest, dir: string, anchor
   })
 }
 
-/** Execute pnpm inside a profile whose caller already holds the profile write lock.
- * Newly installed or updated direct dependencies are checked even when activation is disabled;
- * an untouched dependency never blocks an unrelated operation and stays denied at startup.
- * Compatibility denial restores the profile manifest and lockfile, but leaves downloaded modules on disk.
+/** The profile files a pnpm run may rewrite, in the order a failure puts them back. */
+const RESTORED_PROFILE_FILES = ['package.json', 'pnpm-lock.yaml'] as const
+
+/**
+ * pnpm's own signatures for a version its release-age policy refused. 11.7.0
+ * reports the violation as `MINIMUM_RELEASE_AGE_VIOLATION` and prints the error
+ * code it maps it to, `ERR_PNPM_NO_MATURE_MATCHING_VERSION` (`dist/pnpm.mjs`
+ * `policyViolationToError`). Nothing else about a failed run is retried.
+ */
+const RELEASE_AGE_REFUSAL = /ERR_PNPM_NO_MATURE_MATCHING_VERSION|MINIMUM_RELEASE_AGE_VIOLATION/
+
+/** The restorable profile files as they are now; an absent file reads as undefined. */
+function readProfileFiles(dir: string): { path: string; text: string | undefined }[] {
+  return RESTORED_PROFILE_FILES.map(name => ({ path: join(dir, name), text: optionalFile(join(dir, name)) }))
+}
+
+/** Put the profile files back; pnpm has exited by the time this runs. */
+async function restoreProfileFiles(files: readonly { path: string; text: string | undefined }[]): Promise<void> {
+  for (const file of files) {
+    if (file.text === undefined) await rm(file.path, { force: true })
+    else await writeFileAtomic(file.path, file.text, { mode: 0o600 })
+  }
+}
+
+/**
+ * Fold the profile's duplicated release-age exemptions, warning instead of failing
+ * the operation: the file belongs to pnpm, and an unreadable one is pnpm's own
+ * refusal to report.
+ * @param dir Profile directory.
+ * @param options Output policy the warning goes through.
+ * @returns whether the file was rewritten.
+ */
+async function foldReleaseAgePolicy(dir: string, options: PackageOperationOptions): Promise<boolean> {
+  try {
+    return await normalizeReleaseAgePolicy(dir)
+  } catch (error) {
+    options.onOutput?.(`dsh: warning: could not read pnpm's release-age exemptions: ${String(error)}\n`, 'stderr')
+    return false
+  }
+}
+
+/**
+ * Whether a failed run is the release-age refusal that folding pnpm's own recorded
+ * exemptions can answer: pnpm appends `<name>@<version>` to the profile's
+ * exemptions for the version it approved, and a run that then reads a list whose
+ * earlier entry for that package hides it can refuse again. Only that signature,
+ * a run that ended on its own, and a fold that actually changed the list qualify.
+ * @param result The failed run.
+ * @param folded Whether folding the exemptions rewrote the profile's settings.
+ * @param options Cancellation and output policy of the run.
+ * @returns whether one identical retry is justified.
+ */
+function retriesReleaseAgeRefusal(
+  result: PackageResult, folded: boolean, options: PackageOperationOptions,
+): boolean {
+  if (result.exitCode === 0) return false
+  if (result.timedOut === true) return false
+  if (options.signal?.aborted === true) return false
+  if (!folded) return false
+  // The CLI inherits the terminal, so its run captured no output to read this signature from.
+  if (options.execution !== 'service') return false
+  return RELEASE_AGE_REFUSAL.test(result.output)
+}
+
+/**
+ * Refuse a run whose profile still holds a recorded run, reporting it the way a run
+ * reports its own failure: the diagnostic gets a log of its own and goes to the caller's
+ * output, and nothing is spawned and no profile file is touched.
+ * @param dir Profile directory.
+ * @param active The diagnostic {@link activeRecordedRun} returned.
+ * @param options Output policy the diagnostic goes through.
+ * @returns The refused run's result.
+ */
+async function refuseRecordedRun(dir: string, active: string, options: PackageOperationOptions): Promise<PackageResult> {
+  const logRoot = join(dir, '.plugin-manager', 'logs')
+  await mkdir(logRoot, { recursive: true, mode: 0o700 })
+  const logDir = await mkdtemp(join(logRoot, 'operation-'))
+  const logPath = join(logDir, 'pnpm.log')
+  const log = await open(logPath, 'wx', 0o600)
+  await log.write(active)
+  await log.close()
+  options.onOutput?.(active, 'stderr')
+  const bytes = Buffer.from(active)
+  return { exitCode: 1, output: bytes.subarray(Math.max(0, bytes.length - options.outputBytes)).toString('utf8'), truncated: bytes.length > options.outputBytes, logPath }
+}
+
+/**
+ * Run one pnpm operation in a profile, folding the release-age exemptions pnpm
+ * records around the run.
+ *
+ * pnpm 11 approves a version its release-age policy would otherwise refuse by
+ * appending an exact entry to `minimumReleaseAgeExclude`, but reads that list
+ * with the first rule naming a package deciding it, so an entry a previous run
+ * wrote hides the newly approved one and the install refuses again. The
+ * exemptions are folded around the run itself (before pnpm reads the list an
+ * older release may have left shadowed, and after it the appended entry joins
+ * the entry it would hide), and a refusal that the fold answered is retried once
+ * with the same command from the same files. The retry is a whole operation: its
+ * own pre-install compatibility check, output bounds, cancellation, post-install
+ * checks and bundle reconciliation. A run that fails again reports that failure.
+ *
+ * Nothing here reads or writes a profile file before {@link activeRecordedRun}
+ * has established that no earlier run is still rewriting them: a run recorded by
+ * an operation whose process ended may be an orphan pnpm tree that is still
+ * writing, and folding the policy underneath it would corrupt the file it owns.
  * @param context Launcher-owned profile and resolution locations.
  * @param args Pnpm arguments, before relative path anchoring.
  * @param options Output, activation and cancellation policy.
- * @returns Exit status, whether the silence bound stopped the run, and the diagnostic path.
- * A compatibility denial returns exit code 1. Service output is bounded; CLI output uses inherited descriptors.
+ * @returns The last run's exit status, whether the silence bound stopped it, and its diagnostic path.
  */
 export async function runProfilePnpm(
   context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
@@ -287,20 +388,57 @@ export async function runProfilePnpm(
   const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   // Before any profile file is read: a recorded run that is still active may be rewriting them.
   const active = await activeRecordedRun(dir)
+  if (active !== undefined) return refuseRecordedRun(dir, active, options)
+  // Quiescent from here: the files this invocation will rewrite are nobody else's until it returns.
+  const savedFiles = readProfileFiles(dir)
+  const first = await runProfilePnpmOnce(context, args, options, savedFiles)
+  if (retriesReleaseAgeRefusal(first.result, first.folded, options)) {
+    // pnpm has exited and its run record is gone, so the profile is nobody else's to write.
+    options.onOutput?.('dsh: pnpm refused a version for its release age and recorded it; retrying the same command once\n', 'stderr')
+    await restoreProfileFiles(savedFiles)
+    // The retry is the same operation from the same files; it folds around its own run again.
+    return (await runProfilePnpmOnce(context, args, options, savedFiles)).result
+  }
+  // The CLI inherits the terminal, so pnpm's own refusal is what the person read; a repaired
+  // list only takes effect on another run, which is theirs to start.
+  if (first.folded && first.result.exitCode !== 0 && options.execution === 'cli') {
+    options.onOutput?.('dsh: pnpm\'s release-age exemptions were folded; re-run this command\n', 'stderr')
+  }
+  return first.result
+}
+
+/** What one attempt reports: its run's result, and whether the fold around that run rewrote the settings. */
+interface PnpmAttempt {
+  result: PackageResult
+  /** Whether the run's own release-age fold changed the profile's settings. */
+  folded: boolean
+}
+
+/** Execute pnpm once inside a profile whose caller has already established that no earlier run is writing.
+ * Newly installed or updated direct dependencies are checked even when activation is disabled;
+ * an untouched dependency never blocks an unrelated operation and stays denied at startup.
+ * Compatibility denial restores the profile manifest and lockfile, but leaves downloaded modules on disk.
+ * The release-age exemptions are folded immediately before pnpm starts and again once it has exited,
+ * so a run that never starts (a refused compatibility preflight, a caller that already withdrew)
+ * leaves the profile's policy exactly as its author wrote it.
+ * @param context Launcher-owned profile and resolution locations.
+ * @param args Pnpm arguments, before relative path anchoring.
+ * @param options Output, activation and cancellation policy.
+ * @param savedFiles The profile files a run may rewrite, as the caller read them while the profile was quiescent.
+ * @returns Exit status, whether the silence bound stopped the run, the diagnostic path, and whether the fold rewrote the settings.
+ * A compatibility denial returns exit code 1. Service output is bounded; CLI output uses inherited descriptors.
+ */
+async function runProfilePnpmOnce(
+  context: PackageOperationContext, args: readonly string[], options: PackageOperationOptions,
+  savedFiles: readonly { path: string; text: string | undefined }[],
+): Promise<PnpmAttempt> {
+  const dir = context.dir ?? resolveProfileDir(context.profile, context.home)
   const logRoot = join(dir, '.plugin-manager', 'logs')
   await mkdir(logRoot, { recursive: true, mode: 0o700 })
   const logDir = await mkdtemp(join(logRoot, 'operation-'))
   const logPath = join(logDir, 'pnpm.log')
   const log = await open(logPath, 'wx', 0o600)
-  if (active !== undefined) {
-    await log.write(active)
-    await log.close()
-    options.onOutput?.(active, 'stderr')
-    const bytes = Buffer.from(active)
-    return { exitCode: 1, output: bytes.subarray(Math.max(0, bytes.length - options.outputBytes)).toString('utf8'), truncated: bytes.length > options.outputBytes, logPath }
-  }
   const before = readProfileManifest('dsh', dir)
-  const savedFiles = ['package.json', 'pnpm-lock.yaml'].map(name => ({ path: join(dir, name), text: optionalFile(join(dir, name)) }))
   const beforeDependencies = directDependencies(before)
   const installedBefore = new Map(Object.keys(beforeDependencies).map(name => [name, optionalFile(join(dir, 'node_modules', name, 'package.json'))]))
   let output = Buffer.alloc(0)
@@ -313,12 +451,7 @@ export async function runProfilePnpm(
     }
   }
   const environment = { ...(options.execution === 'cli' ? process.env : scrubbedParentEnv()), ...options.env }
-  const restore = async (): Promise<void> => {
-    for (const file of savedFiles) {
-      if (file.text === undefined) await rm(file.path, { force: true })
-      else await writeFileAtomic(file.path, file.text, { mode: 0o600 })
-    }
-  }
+  const restore = (): Promise<void> => restoreProfileFiles(savedFiles)
   /** Packages a compatibility check refused; callers render them for their own surface. */
   const incompatible: IncompatiblePlugin[] = []
   const rejected = async (warnings: readonly string[], restoration: string): Promise<PackageResult> => {
@@ -348,7 +481,10 @@ export async function runProfilePnpm(
       }
     } catch (error) { void error; continue }
   }
-  if (preflight.length > 0) return rejected(preflight, 'nothing was installed')
+  if (preflight.length > 0) return { result: await rejected(preflight, 'nothing was installed'), folded: false }
+  // A run the caller already withdrew starts nothing, so it must not touch the policy either.
+  const withdrew = options.signal?.aborted === true
+  if (!withdrew) await foldReleaseAgePolicy(dir, options)
   const cancellation = new AbortController()
   // A service run captures output, so execa terminates the tree it leads when the
   // run is killed: a lifecycle script outlives the pnpm process that started it.
@@ -413,8 +549,13 @@ export async function runProfilePnpm(
   // for a silence bound to observe: it would fire on a healthy run.
   if (collectors.length > 0) armIdle()
   let exitCode: number
+  /** Set by this run's own fold once pnpm has exited; a run that never started leaves it false. */
+  let folded = false
+  // The record is what a successor waits for, so it is written before this run's wait begins. A run
+  // whose record cannot be written is one nobody can wait for, and whether pnpm is still running is
+  // unknown, so the release-age fold below — which owns the profile's settings file — stays out of it.
+  await recordRun(dir, { pid: child.pid, grouped })
   try {
-    await recordRun(dir, { pid: child.pid, grouped })
     // execa resolves its promise only once the piped stdio has ended, so the
     // process's own exit — the run's completion — is read from the raw child. A
     // spawn failure settles without one.
@@ -528,10 +669,16 @@ export async function runProfilePnpm(
     // This process saw the run end, so no successor has to wait for it.
     await rm(runRecordPath(dir), { force: true })
     await log.close()
+    // pnpm has exited and this run's record is gone, so the fold is the profile's only writer —
+    // including when the run threw, which is why this sits in the finally rather than after it.
+    if (!withdrew) folded = await foldReleaseAgePolicy(dir, options)
   }
   return {
-    exitCode, output: output.toString('utf8'), truncated, logPath,
-    ...control.stalled ? { timedOut: true } : {}, ...incompatible.length > 0 ? { incompatible } : {},
+    result: {
+      exitCode, output: output.toString('utf8'), truncated, logPath,
+      ...control.stalled ? { timedOut: true } : {}, ...incompatible.length > 0 ? { incompatible } : {},
+    },
+    folded,
   }
 }
 
