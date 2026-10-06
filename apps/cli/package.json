@@ -94,7 +94,7 @@
     "@deepseek-ai/dsh-workflow-ptc": "workspace:*",
     "@vibedev/dsh-defaults": "workspace:*",
     "@vibedev/dsh-web-defaults": "workspace:*",
-    "@vibedev-si/dsh-vibedev": "0.2.4",
+    "@vibedev-si/dsh-vibedev": "0.2.5",
     "@deepseek-ai/schemastery": "workspace:~",
     "commander": "^15.0.0",
     "js-yaml": "^4.2.0",
