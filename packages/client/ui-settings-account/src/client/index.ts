@@ -4,6 +4,7 @@ import type { TranscriptViewMode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -16,7 +17,7 @@ import { ContactConfig, CONTACT_CONFIG_GLOBAL } from '../contact-config.ts'
 import { contactUrl } from './contact-url.ts'
 import { AccountOnboarding } from './AccountOnboarding.tsx'
 import { AccountPlatformHost, type AccountPlatformHostInjected } from './AccountPlatformHost.tsx'
-import { AccountMenu } from './AccountMenu.tsx'
+import { AccountMenu, SecondaryAccountMenu } from './AccountMenu.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
@@ -29,7 +30,7 @@ import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './Deskto
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 export type { AccountSectionInjected, AccountSectionProps } from './AccountSection.tsx'
-export type { AccountMenuProps } from './AccountMenu.tsx'
+export type { AccountMenuProps, SecondaryAccountMenuProps } from './AccountMenu.tsx'
 export type { AccountSnapshot } from './AccountSection.tsx'
 export type { AccountKey } from './locales.ts'
 
@@ -230,7 +231,9 @@ export function apply(ctx: Context): void {
       throw result.error
     },
   }
-  if ('dshDesktop' in globalThis) {
+  // VibeDev turns this off (`onboarding: false`): there the DeepSeek account is the second account, so signing in to it
+  // is not the app's first run.
+  if (config.onboarding && 'dshDesktop' in globalThis) {
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),
@@ -282,9 +285,17 @@ export function apply(ctx: Context): void {
       }),
     }, AccountPlatformHost))
   }
-  ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-    name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
-  }, AccountMenu))
+  if (config.secondary) {
+    // VibeDev: the DeepSeek account is the second account, an entry in the foot's action row; the VibeDev account
+    // plugin's launcher holds the bottom row (`settings.launcher`).
+    ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+      name: 'sidebar.footer.action', id: 'deepseek-account', locale: 'settings.account', inject: () => operations,
+    }, SecondaryAccountMenu))
+  } else {
+    ctx.slots.inject('settings.launcher', () => ctx.slots.register({
+      name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
+    }, AccountMenu))
+  }
   ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {

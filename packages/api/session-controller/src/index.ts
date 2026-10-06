@@ -300,6 +300,12 @@ export class SessionController extends TypertRemoteService {
     const provider = 'deepseek-account'
     if (await hasProviderApiKey(this.ctx)) return
     const catalog = await buildModelCatalog(this.ctx)
+    // VibeDev: a default on another signed-in route that already works is kept. The DeepSeek account is the second
+    // account here, so signing in to it must not move the default off a VibeDev model the user can already use. The
+    // DeepSeek routes keep upstream's rule (the official route lists its models even without a key).
+    const current = catalog.default
+    if (!['deepseek-account', 'deepseek-official'].includes(current.provider) && catalog.groups.some(group =>
+      group.id === current.provider && group.models.some(model => model.id === current.model))) return
     const model = catalog.groups.find(group => group.id === provider)?.models[0]
     if (model === undefined) throw new RemoteError('session/provider-models-unavailable',
       `provider "${provider}" has no available models`, { provider })

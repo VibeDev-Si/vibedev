@@ -11,6 +11,13 @@ export interface ContactConfig {
   bonusAckRetryDelayMs: number
   /** Ceiling for the acknowledgement retry backoff. */
   bonusAckRetryMaxDelayMs: number
+  /**
+   * VibeDev fork: the DeepSeek account is the app's second account. Its entry sits in the sidebar foot's action row
+   * and the settings launcher is left to the main account (the VibeDev account plugin's). Off: DeepSeek Harness's layout.
+   */
+  secondary: boolean
+  /** VibeDev fork: show the product onboarding after a DeepSeek sign-in (DeepSeek Harness does; VibeDev turns it off). */
+  onboarding: boolean
 }
 /** Validate public questionnaire options. */
 export const ContactConfigFields = {
@@ -18,6 +25,8 @@ export const ContactConfigFields = {
   contactSource: z.string().default(''),
   bonusAckRetryDelayMs: z.number().min(1).default(1_000),
   bonusAckRetryMaxDelayMs: z.number().min(1).default(60_000),
+  secondary: z.boolean().default(false),
+  onboarding: z.boolean().default(true),
 }
 /** Validate public questionnaire options. */
 export const ContactConfig: z<Partial<ContactConfig>, ContactConfig> = z.object(ContactConfigFields)

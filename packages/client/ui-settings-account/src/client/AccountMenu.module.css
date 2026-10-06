@@ -8,6 +8,9 @@
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Signed-out launcher: a 32px More row carrying the 14px ellipsis. */
 .trigger[data-signed-out='true']:not([data-collapsed='true']) { height: 32px; padding: 6px 2px 6px 6px; line-height: 20px; }
+/* VibeDev: the DeepSeek account as the second account, a quieter 32px row above the VibeDev account's launcher. */
+.trigger[data-secondary='true']:not([data-collapsed='true']) { height: 32px; padding: 6px; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.trigger[data-secondary='true'] .avatar { width: 18px; height: 18px; }
 
 /* Signed-out menu card and rows; listClassName reaches the portaled card. */
 .signedOutMenu[role='menu'] {

@@ -1,1 +1,1 @@
-当前未登录 VibeDev 账号登录 VibeDev 账号获取专属 API Key登录
+当前未登录 DeepSeek 账号登录 DeepSeek 账号即可使用 DeepSeek 的模型登录

@@ -82,6 +82,12 @@ describe('VibeDev Web defaults bundle', () => {
     expect([...(String(ours.personaPrefix) + String(ours.personaSuffix)).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model', 'cwd'])
   })
 
+  it('makes the DeepSeek account the second account: a foot entry, without its product onboarding', () => {
+    expect(targeted.find(row => row.id === 'ui-settings-account')).toEqual({
+      id: 'ui-settings-account', config: { secondary: true, onboarding: false },
+    })
+  })
+
   it('only targets rows that dsh-web-app defines, so no patch is dropped with a warning', () => {
     const defined = new Set(rows(load(webAppPatch)).map(row => row.id))
     expect(targeted.map(row => row.id).filter(id => !defined.has(id))).toEqual([])

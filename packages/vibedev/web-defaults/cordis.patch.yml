@@ -20,6 +20,15 @@
 - id: ui-brand-official
   disabled: true
 
+# The DeepSeek account is the second account (the VibeDev account plugin, inserted by
+# @vibedev/dsh-defaults, is the main one): its entry moves up into the sidebar
+# foot's action row, leaving the bottom row to the VibeDev account, and the
+# product onboarding that follows a DeepSeek sign-in stays off.
+- id: ui-settings-account
+  config:
+    secondary: true
+    onboarding: false
+
 - insert:
     - id: vibedev-brand
       name: '@vibedev/dsh-client-brand'

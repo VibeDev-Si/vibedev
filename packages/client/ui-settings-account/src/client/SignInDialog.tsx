@@ -15,7 +15,8 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   start: () => Promise<void>
   cancel: (id: SignInAttemptId) => Promise<void>
   close: () => void
-  useApiKey: () => void
+  /** Switch to adding an API Key; omitted where no API-key route exists (VibeDev), and the button then cancels. */
+  useApiKey?: () => void
   t: (key: AccountKey) => string
 }) {
   const [busy, setBusy] = useState(false)
@@ -79,7 +80,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
     </div>
     <div className={css.actions}>
       <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
-        onClick={active ? dismiss : useApiKey}>{t(active ? 'cancel' : 'addApiKey')}</Button>
+        onClick={active || useApiKey === undefined ? dismiss : useApiKey}>{t(active || useApiKey === undefined ? 'cancel' : 'addApiKey')}</Button>
       <Button variant="primary" className={css.primaryButton} disabled={busy || committing || waiting || account.view === undefined}
         aria-label={waiting ? t('waiting') : undefined} onClick={() => { void run(retry) }}>
         {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}

@@ -2018,31 +2018,3 @@ it('renders the localized account row and supports catalogs without capacity def
     operations={operationsWith(scripted.face)} t={t} readOnly={false} onClose={() => {}} />)
   expect(screen.queryByLabelText(en.keyInput)).toBeNull()
 })
-
-it.each([en, zh])('shows the account channel models read-only when the gateway owns the list (VibeDev fork)', (copy) => {
-  const mutate = vi.fn(() => Promise.resolve(remoteOk(accountNamespace())))
-  const ops = operationsWith(scriptedFace({ mutate }).face)
-  const onClose = vi.fn()
-  render(<ProviderEditor provider="deepseek-account" displayName={copy.deepSeekAccount}
-    namespace={accountNamespace()} settingsPath={[]} schema={settingsSchema}
-    accountModels={[{ id: 'claude-sonnet-5-5', name: 'claude-sonnet-5-5' }, { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' }]}
-    operations={ops} t={key => copy[key]} readOnly={false} onClose={onClose} />)
-  expect(screen.getByText(copy.accountModelsMeta)).toBeTruthy()
-  expect(screen.getByText('claude-sonnet-5-5')).toBeTruthy()
-  expect(screen.getByText('GPT-5.6 Luna')).toBeTruthy()
-  expect(screen.getByText('gpt-5.6-luna')).toBeTruthy()
-  // Nothing to edit: no model inputs, no add button, and Apply stays off.
-  expect(screen.queryByDisplayValue('deepseek-v4-flash')).toBeNull()
-  expect(screen.queryAllByLabelText(new RegExp(copy.modelId))).toHaveLength(0)
-  expect((screen.getByText(copy.apply).closest('button') as HTMLButtonElement).disabled).toBe(true)
-  fireEvent.click(screen.getByText(copy.close))
-  expect(onClose).toHaveBeenCalledWith(false)
-  expect(mutate).not.toHaveBeenCalled()
-})
-
-it('says to sign in when the account channel lists no models yet (VibeDev fork)', () => {
-  render(<ProviderEditor provider="deepseek-account" displayName={en.deepSeekAccount}
-    namespace={accountNamespace()} settingsPath={[]} schema={settingsSchema} accountModels={[]}
-    operations={operationsWith(scriptedFace({}).face)} t={t} readOnly={false} onClose={vi.fn()} />)
-  expect(screen.getByText(en.accountModelsEmpty)).toBeTruthy()
-})

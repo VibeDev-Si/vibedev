@@ -42,6 +42,7 @@ import { pruneCrashReports, RendererConsoleTail, writeCrashReport, type CrashRep
 import { openWelcomeWindow } from './welcome-window.ts'
 import { WELCOME_IPC, needsWelcome, type WelcomeNotice } from './welcome-api.ts'
 import { connectDesktopWelcome, type DesktopWelcomeBackend } from './welcome-backend.ts'
+import type { VibeDevAccountBackend } from './vibedev-account-backend.ts'
 import { DesktopUpdateJournal } from './update-journal.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
 import { DesktopUpdateSchedule, resolveDesktopUpdateScheduleConfig } from './update-schedule.ts'
@@ -440,6 +441,12 @@ async function main(): Promise<void> {
     } catch (_error) { /* Analytics cannot interrupt native actions. */ }
   }
   let stopAccount: (() => void) | undefined
+  /** VibeDev: the main account's poll, when the built-in VibeDev account plugin serves the main account. */
+  let stopVibeDev: (() => void) | undefined
+  /** VibeDev: the main account when the built-in VibeDev account plugin serves it, read once per Host start. */
+  let welcomeVibeDev: VibeDevAccountBackend | undefined
+  /** VibeDev: the account the welcome window signs in to, the main (VibeDev) one when the plugin serves it. */
+  const welcomeAccount = () => welcomeVibeDev ?? welcomeBackend?.account
   let openedAttempt: string | undefined
   let returnedAttempt: string | undefined
   let pendingWelcomeNotice: WelcomeNotice | undefined
@@ -486,9 +493,15 @@ async function main(): Promise<void> {
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
         stopAccount?.()
         const accountBackend = welcomeBackend.account
+        // VibeDev: when the plugin serves the main account, the welcome window follows that one instead (below); this
+        // stream still opens the browser for a DeepSeek sign-in started in the app.
+        welcomeVibeDev = await welcomeBackend.vibedevAccount?.()
+        const welcomeFollows = welcomeVibeDev === undefined
         stopAccount = accountBackend.watch((state) => {
           if (quitting) return
-          if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+          if (welcomeFollows && welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
+            welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+          }
           const attempt = state.attempt
           if (attempt?.phase === 'waiting-browser' && attempt.authorizeUrl !== undefined && openedAttempt !== attempt.id) {
             openedAttempt = attempt.id
@@ -498,13 +511,15 @@ async function main(): Promise<void> {
             returnedAttempt = attempt.id
             focusPrimaryWindow()
           }
-          if (state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) void enterWorkspace({ activate: false }).catch(() => undefined)
+          if (welcomeFollows && state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) void enterWorkspace({ activate: false }).catch(() => undefined)
           if (previousAccountStatus === 'credential-stored' && state.status === 'signed-out') {
             void readWelcomeState().then(async (value) => {
               if (needsWelcome(value) && !quitting) {
                 enteredWorkspace = false
                 await showWelcome()
-                if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+                if (welcomeFollows && welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
+                  welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+                }
               }
               return undefined
             }).catch(() => undefined)
@@ -519,13 +534,43 @@ async function main(): Promise<void> {
             enteredWorkspace = false
             await showWelcome()
             const state = await accountBackend.state()
-            if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+            if (welcomeFollows && welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
+              welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+            }
           }).catch(() => undefined)
         }, (enabled) => { analyticsEnabled = enabled })
+        // VibeDev: the main account's state for the welcome window. The plugin opens the browser for its own sign-in.
+        stopVibeDev?.()
+        stopVibeDev = undefined
+        let previousVibeDevStatus: string | undefined
+        stopVibeDev = welcomeVibeDev?.watch((state) => {
+          if (quitting) return
+          if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+          const attempt = state.attempt
+          if ((attempt?.phase === 'failed' || attempt?.phase === 'expired') && returnedAttempt !== attempt.id) {
+            returnedAttempt = attempt.id
+            focusPrimaryWindow()
+          }
+          if (state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) void enterWorkspace({ activate: false }).catch(() => undefined)
+          if (previousVibeDevStatus === 'credential-stored' && state.status === 'signed-out') {
+            void readWelcomeState().then(async (value) => {
+              if (needsWelcome(value) && !quitting) {
+                enteredWorkspace = false
+                await showWelcome()
+                if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.webContents.send(WELCOME_IPC.state, state)
+              }
+              return undefined
+            }).catch(() => undefined)
+          }
+          previousVibeDevStatus = state.status
+        }, () => {
+          // The next poll retries; a failed read does not change account state.
+        })
       },
       stop: async () => {
         analyticsEnabled = false
         stopAccount?.()
+        stopVibeDev?.()
         try { await host.stop(requireCleanStop) }
         catch (error) {
           if (!requireCleanStop || !(error instanceof DesktopHostUncleanExitError)) throw error
@@ -1186,19 +1231,23 @@ async function main(): Promise<void> {
           return Promise.resolve(notice)
         },
         startSignIn: async () => {
-          if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
-          return welcomeBackend.account.start(desktopClientMetadata(locale.id))
+          const account = welcomeAccount()
+          if (account === undefined) throw new Error('desktop welcome: backend unavailable')
+          return account.start(desktopClientMetadata(locale.id))
         },
         cancelSignIn: async (id) => {
-          if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
-          return welcomeBackend.account.cancel(id)
+          const account = welcomeAccount()
+          if (account === undefined) throw new Error('desktop welcome: backend unavailable')
+          return account.cancel(id)
         },
         copySignInLink: async (id) => {
-          const state = await welcomeBackend?.account.state()
+          const state = await welcomeAccount()?.state()
           if (state?.attempt?.id !== id || state.attempt.phase !== 'waiting-browser' || state.attempt.authorizeUrl === undefined) {
             throw new Error('desktop welcome: login link is unavailable')
           }
-          await clipboard.writeText(platformLoginUrl(state.attempt.authorizeUrl))
+          // The VibeDev sign-in page takes no theme parameter; the DeepSeek Platform one does.
+          const link = state.attempt.authorizeUrl
+          await clipboard.writeText(welcomeVibeDev === undefined ? platformLoginUrl(link) : link)
         },
         saveApiKey: async (apiKey) => {
           if (backend.host === undefined || welcomeBackend === undefined) return { ok: false }
@@ -1211,8 +1260,9 @@ async function main(): Promise<void> {
       })
       const window = welcomeWindow
       window.once('closed', () => {
-        void welcomeBackend?.account.state().then((state) => {
-          if (state.attempt !== null && !enteredWorkspace) return welcomeBackend?.account.cancel(state.attempt.id)
+        const account = welcomeAccount()
+        void account?.state().then((state) => {
+          if (state.attempt !== null && !enteredWorkspace) return account.cancel(state.attempt.id)
           return undefined
         }).catch(() => undefined)
       })
@@ -1282,6 +1332,7 @@ async function main(): Promise<void> {
     backgroundNotice?.dispose()
     tray?.dispose()
     stopAccount?.()
+    stopVibeDev?.()
     if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.hide()
     if (mainWindow !== undefined && !mainWindow.isDestroyed()) mainWindow.hide()
     updateSchedule.dispose()

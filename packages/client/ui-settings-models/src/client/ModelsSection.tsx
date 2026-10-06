@@ -30,7 +30,7 @@ import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from './slot-contract.ts'
 import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, protocolChoices, providerUsable } from './store.ts'
-import type { AccountModel, ModelsSettingsStore, ProviderRow } from './store.ts'
+import type { ModelsSettingsStore, ProviderRow } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
@@ -92,8 +92,6 @@ interface EditorTarget extends ProviderIdentity {
   credentialRef?: string
   /** The adapter reports this route as one it does not ship (see {@link ProviderEditorProps.declared}). */
   declared?: boolean
-  /** VibeDev fork: the account channel's models, shown read-only (see {@link ProviderEditorProps.accountModels}). */
-  accountModels?: readonly AccountModel[]
 }
 
 /** A dormant directory row the add card can adopt, with its registered namespace. */
@@ -124,7 +122,6 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
       displayName={target.displayName}
       settingsPath={target.settingsPath}
       {...target.declared === true ? { declared: true } : {}}
-      {...target.accountModels === undefined ? {} : { accountModels: target.accountModels }}
       {...props}
     />
   )
@@ -203,7 +200,6 @@ function targetOf(row: ProviderRow): EditorTarget {
     ...credentialRef === undefined ? {} : { credentialRef },
     // Only declared routes may expose route-owned fields.
     ...row.entry.declared === true ? { declared: true } : {},
-    ...row.accountModels === undefined ? {} : { accountModels: row.accountModels },
   }
 }
 

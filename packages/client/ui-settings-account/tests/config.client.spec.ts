@@ -15,6 +15,8 @@ it('injects configured contact options and removes the listener on disposal', as
   expect(table).toEqual([{ kind: 'global', name: CONTACT_CONFIG_GLOBAL, value: {
     contactFormUrl: config.contactFormUrl, contactSource: config.contactSource,
     bonusAckRetryDelayMs: 25, bonusAckRetryMaxDelayMs: 100,
+    // VibeDev fork: DeepSeek Harness's layout unless a profile makes the DeepSeek account the second one.
+    secondary: false, onboarding: true,
   } }])
   await ctx.fiber.dispose()
   table.length = 0

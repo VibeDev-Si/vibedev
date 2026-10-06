@@ -79,6 +79,19 @@ it('keeps account UI and account RPC inactive in a plain browser, including afte
   }
 }, 60_000)
 
+it('makes the DeepSeek account the second account where the profile says so (VibeDev)', async ({ start }) => {
+  vi.stubGlobal('dshDesktop', {})
+  vi.stubGlobal(CONTACT_CONFIG_GLOBAL, { secondary: true, onboarding: false })
+  const c = await start()
+  await c.flush()
+  // The bottom launcher is left to the main (VibeDev) account; the DeepSeek account is an entry in the foot's action row.
+  expect(c.ctx.slots.entries('settings.launcher')).toHaveLength(0)
+  expect(c.ctx.slots.entries('sidebar.footer.action').map(entry => entry.options.id)).toContain('deepseek-account')
+  // Its product onboarding stays off; its quota notice stays.
+  expect(c.ctx.slots.entries('shell.overlay').some(entry => entry.options.id === 'desktop-onboarding')).toBe(false)
+  expect(quotaNoticeEntry(c)).toBeDefined()
+})
+
 it('claims account balance notices from the frame-wide quota chain and declines generic quota', async ({ start }) => {
   vi.stubGlobal('dshDesktop', {})
   const c = await start()
@@ -129,7 +142,8 @@ it('shares account actions across seats, publishes dialog ownership, and opens c
   await vi.waitFor(() => { expect(actions.hooks.account.getSnapshot().details?.profile).toEqual(profile) })
   const entry = c.ctx.slots.entries('settings.section').find(entry => entry.options.id === 'account')!
   expect(entry.inject!()).toBe(actions)
-  expect(resolveSlotLabel(entry.options.label)).toBe('Account')
+  // VibeDev: the section is named after the DeepSeek account, next to the VibeDev account's.
+  expect(resolveSlotLabel(entry.options.label)).toBe('DeepSeek account')
   actions.contactUs()
   const support = new URL(String(open.mock.calls.at(-1)![0]))
   expect(support.searchParams.get('prefill_uid')).toBe('account-user')

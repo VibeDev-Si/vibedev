@@ -3,6 +3,7 @@ import type { ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/typ
 
 import { randomUUID } from 'node:crypto'
 import { desktopAccountBackend, type DesktopAccountBackend } from './account-backend.ts'
+import { connectVibeDevAccount, type VibeDevAccountBackend } from './vibedev-account-backend.ts'
 
 /** Metadata needed before the native entry or workspace becomes visible. */
 export interface WelcomeState {
@@ -17,6 +18,11 @@ export interface DesktopWelcomeBackend {
   /** @returns the current Host policy; every read observes live configuration. */
   analyticsEnabled(): Promise<boolean>
   readonly account: DesktopAccountBackend
+  /**
+   * VibeDev: the main account, from the built-in VibeDev account plugin, when it serves one (asked once, on first use).
+   * The welcome flow signs in to it; the DeepSeek account (`account`) is the second account, signed in to from the app.
+   */
+  vibedevAccount?(): Promise<VibeDevAccountBackend | undefined>
   /** @param event - desktop-owned fields. @returns after local Host intake. */
   report(event: ProductEvent): Promise<void>
   /** @returns Configured-key presence and the shared language preference, without credential values. */
@@ -69,6 +75,8 @@ export async function connectDesktopWelcome(
     return envelope.result.value
   }
   const account = desktopAccountBackend(origin, invoke, cookies)
+  let vibedevProbe: Promise<VibeDevAccountBackend | undefined> | undefined
+  const vibedevAccount = (): Promise<VibeDevAccountBackend | undefined> => vibedevProbe ??= connectVibeDevAccount(origin, send)
   const settingsAndReference = async () => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
@@ -114,7 +122,9 @@ export async function connectDesktopWelcome(
     }
     if (ref !== undefined && !record(states[ref])) throw new Error('desktop welcome: missing credential metadata')
     return {
-      loggedIn: (await account.state()).status === 'credential-stored',
+      // VibeDev: either account gives the app working models, so neither sign-in asks for the welcome again.
+      loggedIn: (await account.state()).status === 'credential-stored'
+        || (await (await vibedevAccount())?.state())?.status === 'credential-stored',
       hasApiKey: Object.values(states).some(value => record(value) && value.configured === true),
       writable: ref !== undefined && record(states[ref]) && states[ref].writable === true,
       localePreference: localePreference(namespaces),
@@ -122,6 +132,7 @@ export async function connectDesktopWelcome(
   }
   return {
     account,
+    vibedevAccount,
     read,
     async analyticsEnabled() {
       const enabled = await invoke({ namespace: 'productAnalytics', method: 'enabled', args: {} }, AbortSignal.timeout(1000))

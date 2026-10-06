@@ -21,6 +21,15 @@ function mount(attempt: AccountView['attempt'], copy: typeof en | typeof zh = en
   render(<SignInDialog {...props} />)
   return props
 }
+it('offers no API Key where no API-key route exists, and the second button cancels (VibeDev)', () => {
+  const { useApiKey: _unused, ...props } = dialogProps(null)
+  render(<SignInDialog {...props} />)
+  expect(screen.queryByRole('button', { name: en.addApiKey })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: en.cancel }))
+  expect(props.close).toHaveBeenCalledOnce()
+  expect(props.start).not.toHaveBeenCalled()
+})
+
 it.each([en, zh])('offers sign in or the existing API key editor', async (copy) => {
   const props = mount(null, copy)
   await expect(`${screen.getByRole('dialog').textContent}\n`).toMatchFileSnapshot(`./expected/login-${copy === en ? 'en' : 'zh'}.txt`)

@@ -15,6 +15,20 @@ import css from './AccountMenu.module.css'
 /** Account launcher composed by the settings shell. */
 export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 
+/**
+ * VibeDev: the DeepSeek account as the second account. The VibeDev account plugin's launcher holds the bottom row of
+ * the sidebar, and this smaller entry sits in the foot's action row above it (`sidebar.footer.action`), still hosting
+ * the DeepSeek sign-in and sign-out dialogs and its toasts. The settings shell's navigation does not reach that row,
+ * so the menu leaves out Settings (the main launcher has it), the feedback form (DeepSeek Harness's own) and the API
+ * Key choice (the DeepSeek API-key route is off in VibeDev).
+ */
+export type SecondaryAccountMenuProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
+
+/** @param props - the action row's geometry and the account operations. @returns the DeepSeek account entry. */
+export function SecondaryAccountMenu(props: SecondaryAccountMenuProps) {
+  return <AccountMenu {...props} secondary settingsOpen={false} openSettings={() => {}} openOnboarding={() => {}} />
+}
+
 /** The signed-in label stays empty while the profile loads.
  * @param props - sidebar geometry, settings navigation and account operations.
  * @returns account menu launcher.
@@ -22,8 +36,8 @@ export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'
 export function AccountMenu({
   subscribeSessionExpired, subscribeModelSignInRequired, wide, settingsShortcut, openSettings, openOnboarding, settingsOpen,
   useAccount, useTheme, signOut, hasRunningAccountTasks, refreshAccount, bonusNoticeShown, bonusNoticeDismissed,
-  contactUs, showLogin, start, cancel, t,
-}: AccountMenuProps) {
+  contactUs, showLogin, start, cancel, t, secondary = false,
+}: AccountMenuProps & { readonly secondary?: boolean }) {
   const anchor = useRef<HTMLDivElement>(null)
   // The launcher outlives the panel, so a false-to-true edge is one Settings entry:
   // re-renders, section switches and tab switches inside one open must not read again.
@@ -61,20 +75,28 @@ export function AccountMenu({
       anchor={anchor} title={t('bonusNoticeTitle')} closeLabel={t('close')}
       onShown={bonusNoticeShown} onDismiss={bonusNoticeDismissed} />}
     <Menu open={open} side="top" portal autoFocus className={css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
-      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
+      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn}
+        data-secondary={secondary} aria-label={t(secondary ? 'deepSeekMenu' : 'menu')}
         aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
         {signedIn
           ? <span className={css.avatar}><AccountAvatar url={profile?.status === 'ready' ? profile.value.avatarUrl : null} /></span>
-          : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
+          : secondary ? <IconUserOutlineMedium size={14} /> : <IconEllipsisOutlineMedium size={14} />}
+        {wide && <span className={css.label}>{secondary
+          ? signedIn ? label === null ? t('deepSeek') : `${t('deepSeek')} · ${label}` : t('deepSeekSignIn')
+          : signedIn ? label : t('more')}</span>}
       </button>}
-      items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
-        { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
-        ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
-          : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
-      ]}
+      items={secondary
+        ? signedIn
+          ? [{ type: 'label', id: 'deepseek', text: t('deepSeekAccount') },
+            { id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
+          : [{ id: 'signin', label: t('deepSeekSignIn'), icon: <IconUserOutlineMedium size={16} /> }]
+        : [
+          { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
+            ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
+          { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },
+          ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
+            : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+        ]}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
         if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
@@ -84,7 +106,8 @@ export function AccountMenu({
       }} />
     {account.loginVisible && !account.onboarding && <SignInDialog account={account} colorScheme={colorScheme}
       start={start} cancel={cancel} t={t}
-      close={() => { showLogin(false) }} useApiKey={() => { showLogin(false); openOnboarding('deepseek-official') }} />}
+      close={() => { showLogin(false) }}
+      {...secondary ? {} : { useApiKey: () => { showLogin(false); openOnboarding('deepseek-official') } }} />}
     {signedIn && signOutImpact !== undefined && <SignOutDialog running={signOutImpact} signOut={signOut}
       close={() => { setSignOutImpact(undefined) }} t={t} />}
   </div>

@@ -385,12 +385,3 @@ it('removes the account row after sign-out and restores it after sign-in', async
   await store.load()
   expect(store.store.getSnapshot().rows[0]?.entry.provider).toBe('deepseek-account')
 })
-
-it('keeps the account channel models from the session catalog on the account row (VibeDev fork)', async () => {
-  const { ctx, mirror } = api({ accountAvailable: true, providers: async () => ok({ providers: [{
-    provider: 'deepseek-account', displayName: 'VibeDev', settingsNs: 'llm-deepseek-account', settingsPath: [], active: true,
-  }] }) })
-  const store = new ModelsSettingsStore(ctx, settingsSchema, mirror)
-  await store.load()
-  expect(store.store.getSnapshot().rows[0]?.accountModels).toEqual([{ id: 'deepseek-flash', name: 'deepseek-flash' }])
-})

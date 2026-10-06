@@ -15,6 +15,7 @@ patchedDependencies:
   '@fortune-sheet/core@1.0.4': 8791a230763dbf853fd65d627c68c31de37209992851377855e16cf08ea70532
   '@fortune-sheet/react@1.0.4': 2932e52e79afcd4ced08cfa123b5eded786c85043da32f622f3e80af6fc96c37
   '@yao-pkg/pkg@6.21.0': 75891fc22b277c145cafeab83e41baf4a70f5b8fe6dc0801c6a0b922d7ee88c7
+  app-builder-lib@26.15.3: 42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24
   exceljs@4.4.0: c1bf8ac8f319dab382f08e3a669b715e691d46c703ac5a4163eb383fbedd1d48
   node-pty@1.2.0-beta.15: b40ae545608897914bd25fb009c97eeac478c34e8a910298ddcb01b746534bb0
 
@@ -436,6 +437,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
+      '@vibedev-si/dsh-vibedev':
+        specifier: 0.2.1
+        version: 0.2.1(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
       '@vibedev/dsh-defaults':
         specifier: workspace:*
         version: link:../../packages/vibedev/defaults
@@ -467,12 +471,21 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../packages/test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
       '@deepseek-ai/dsh-attachment-local':
         specifier: workspace:*
         version: link:../../packages/attachment/attachment-local
       '@deepseek-ai/dsh-bash-local':
         specifier: workspace:*
         version: link:../../packages/shell/bash-local
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../packages/util/brand
+      '@deepseek-ai/dsh-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:*
         version: link:../../packages/credentials/credentials-local
@@ -572,12 +585,18 @@ importers:
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:*
         version: link:../../packages/core/system-prompt
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:*
+        version: link:../../packages/util/timeout
       '@deepseek-ai/dsh-tools':
         specifier: workspace:*
         version: link:../../packages/core/tools
       '@deepseek-ai/dsh-user-approval':
         specifier: workspace:*
         version: link:../../packages/interaction/user-approval
+      '@deepseek-ai/dsh-web':
+        specifier: workspace:*
+        version: link:../../packages/web/web
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
@@ -671,7 +690,7 @@ importers:
         version: 8.18.1
       app-builder-lib:
         specifier: 26.15.3
-        version: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
+        version: 26.15.3(patch_hash=42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24)(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
       cos-nodejs-sdk-v5:
         specifier: 3.0.0
         version: 3.0.0
@@ -4809,6 +4828,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: workspace:*
         version: link:../ui-settings-models
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: workspace:*
+        version: link:../ui-sidebar
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
@@ -13855,15 +13877,9 @@ importers:
 
   packages/vibedev/defaults:
     dependencies:
-      '@vibedev/dsh-account':
-        specifier: workspace:*
-        version: link:../account
-      '@vibedev/dsh-llm-gateway':
-        specifier: workspace:*
-        version: link:../llm-gateway
-      '@vibedev/dsh-web-search-gateway':
-        specifier: workspace:*
-        version: link:../web-search-gateway
+      '@vibedev-si/dsh-vibedev':
+        specifier: 0.2.1
+        version: 0.2.1(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -13871,6 +13887,30 @@ importers:
       '@deepseek-ai/cordis-plugin-include':
         specifier: workspace:~
         version: link:../../../vendor/include
+      '@deepseek-ai/dsh-attachment':
+        specifier: workspace:*
+        version: link:../../attachment/attachment
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-credentials':
+        specifier: workspace:*
+        version: link:../../credentials/credentials
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
+      '@deepseek-ai/dsh-web':
+        specifier: workspace:*
+        version: link:../../web/web
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
       js-yaml:
         specifier: ^4.2.0
         version: 4.3.1
@@ -18019,6 +18059,20 @@ packages:
 
   '@upsetjs/venn.js@2.0.0':
     resolution: {integrity: sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw==}
+
+  '@vibedev-si/dsh-vibedev@0.2.1':
+    resolution: {integrity: sha512-zYKfIRHqLJkLmE8BNuPX6vUNOamYsyh9HrQUvSwCAYqIiQwqFipv/JVevWC+lrNqfFzxNj5kj0+h3SbIQmLEcA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@deepseek-ai/cordis': ^4.0.2
+      '@deepseek-ai/dsh-attachment': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-brand': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-credentials': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-llm': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-timeout': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-tools': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/dsh-web': '>=0.2.0-rc.2 <0.3.0'
+      '@deepseek-ai/schemastery': ^3.18.2
 
   '@vitejs/plugin-react@4.7.0':
     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
@@ -25122,6 +25176,18 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
+  '@vibedev-si/dsh-vibedev@0.2.1(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-attachment': link:packages/attachment/attachment
+      '@deepseek-ai/dsh-brand': link:packages/util/brand
+      '@deepseek-ai/dsh-credentials': link:packages/credentials/credentials
+      '@deepseek-ai/dsh-llm': link:packages/llm/llm
+      '@deepseek-ai/dsh-timeout': link:packages/util/timeout
+      '@deepseek-ai/dsh-tools': link:packages/core/tools
+      '@deepseek-ai/dsh-web': link:packages/web/web
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+
   '@vitejs/plugin-react@4.7.0(supports-color@9.4.0)(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7(supports-color@9.4.0)
@@ -25495,7 +25561,7 @@ snapshots:
 
   anynum@1.0.1: {}
 
-  app-builder-lib@26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3):
+  app-builder-lib@26.15.3(patch_hash=42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24)(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3):
     dependencies:
       '@electron/asar': 3.4.1
       '@electron/fuses': 1.8.0
@@ -26343,7 +26409,7 @@ snapshots:
 
   dmg-builder@26.15.3(electron-builder-squirrel-windows@26.15.3):
     dependencies:
-      app-builder-lib: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
+      app-builder-lib: 26.15.3(patch_hash=42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24)(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
       builder-util: 26.15.3
       fs-extra: 10.1.0
       js-yaml: 4.3.1
@@ -26396,7 +26462,7 @@ snapshots:
 
   electron-builder-squirrel-windows@26.15.3(dmg-builder@26.15.3):
     dependencies:
-      app-builder-lib: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
+      app-builder-lib: 26.15.3(patch_hash=42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24)(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
       builder-util: 26.15.3
       electron-winstaller: 5.4.0
     transitivePeerDependencies:
@@ -26405,7 +26471,7 @@ snapshots:
 
   electron-builder@26.15.3(electron-builder-squirrel-windows@26.15.3):
     dependencies:
-      app-builder-lib: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
+      app-builder-lib: 26.15.3(patch_hash=42ecd242acb97f4870623d580a6deaff24ab8f4da8cf210f1e7383b667300c24)(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)
       builder-util: 26.15.3
       builder-util-runtime: 9.7.0
       chalk: 4.1.2

@@ -66,6 +66,8 @@ minimumReleaseAgeExclude:
   # point of bumping it; waiting out the release age would defeat that.
   - '@earendil-works/pi-ai@0.87.1'
   - '@earendil-works/pi-telemetry@0.87.1'
+  # The VibeDev account plugin is ours, released together with the app that pins it.
+  - '@vibedev-si/dsh-vibedev'
   - node-addon-native-custom-loader@0.1.6
   - node-addon-require-builtin-darwin-arm64@0.1.6
   - node-addon-require-builtin-darwin-x64@0.1.6
@@ -103,5 +105,6 @@ patchedDependencies:
   '@fortune-sheet/core@1.0.4': patches/@fortune-sheet__core@1.0.4.patch
   '@fortune-sheet/react@1.0.4': patches/@fortune-sheet__react@1.0.4.patch
   '@yao-pkg/pkg@6.21.0': patches/@yao-pkg__pkg@6.21.0.patch
+  app-builder-lib@26.15.3: patches/app-builder-lib@26.15.3.patch
   exceljs@4.4.0: patches/exceljs@4.4.0.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch

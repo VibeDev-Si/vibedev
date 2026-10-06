@@ -898,6 +898,29 @@ it('initializes the account model without reasoning metadata and rejects an empt
   })
 })
 
+it('keeps a working default on another signed-in route when the DeepSeek account signs in (VibeDev)', async () => {
+  const { configurationFixture } = await import('../../../settings/settings/tests/configuration-fixture.ts')
+  const configured = await configurationFixture({ hmr: false })
+  const { ctx } = await harness(undefined, configured.ctx)
+  ctx.provide('credentials', { describe: vi.fn() } as never)
+  const disposeVibeDev = ctx.llm.registerAdapter(['vibedev-gateway'], new CatalogAdapter('VibeDev', [
+    { provider: 'vibedev-gateway', id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+  ]))
+  ctx.llm.registerAdapter(['deepseek-account'], new CatalogAdapter('Account', [
+    { provider: 'deepseek-account', id: 'basic', name: 'Basic' },
+  ]))
+  await ctx.agentDefaultModel.saveSelection({ provider: 'vibedev-gateway', model: 'deepseek-v4-flash' })
+  const controller = createSessionTestController(ctx, {
+    defaultModelSelection: () => ctx.agentDefaultModel.currentSelection(), cwd: '/tmp',
+  })
+  await controller.initializeDefaultModel()
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'vibedev-gateway', model: 'deepseek-v4-flash' })
+  // Signed out of VibeDev, its route lists nothing: the DeepSeek sign-in picks the account model as upstream does.
+  disposeVibeDev()
+  await controller.initializeDefaultModel()
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-account', model: 'basic' })
+})
+
 it.each([new Error('catalog disconnected'), 'catalog disconnected'])('reports catalog rejection as an unavailable selection: %s', async (failure) => {
   const { ctx } = await harness()
   const { modelAvailable } = await import('../src/catalog.ts')

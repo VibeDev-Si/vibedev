@@ -3,7 +3,7 @@
 /** English strings (the key-set source of truth for this pair). */
 export const en = {
   nav: 'Models',
-  deepSeekAccount: 'VibeDev account',
+  deepSeekAccount: 'DeepSeek Account',
   title: 'Models',
   intro: 'Enter your API keys to use models from the following providers.',
   edit: 'Edit',
@@ -25,8 +25,6 @@ export const en = {
   addCustomUnavailable: 'No API protocol is available to declare.',
   provider: 'Provider',
   close: 'Close',
-  accountModelsMeta: 'Provided by the VibeDev gateway for your account',
-  accountModelsEmpty: 'Sign in to VibeDev to see the models your account can use.',
   cancel: 'Cancel',
   apply: 'Apply',
   applying: 'Applying…',
@@ -125,7 +123,7 @@ export type ModelsKey = keyof typeof en
 /** Chinese strings (same keys as {@link en}). */
 export const zh: { [Key in keyof typeof en]: string } = {
   nav: '模型',
-  deepSeekAccount: 'VibeDev 账号',
+  deepSeekAccount: 'DeepSeek 账号',
   title: '模型',
   intro: '填入各提供商的 API 密钥即可使用其模型。',
   edit: '编辑',
@@ -147,8 +145,6 @@ export const zh: { [Key in keyof typeof en]: string } = {
   addCustomUnavailable: '没有可用的 API 协议。',
   provider: '提供商',
   close: '关闭',
-  accountModelsMeta: '由 VibeDev 网关按你的账号提供',
-  accountModelsEmpty: '登录 VibeDev 后显示你的账号可用的模型。',
   cancel: '取消',
   apply: '保存',
   applying: '保存中…',

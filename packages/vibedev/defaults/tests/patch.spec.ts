@@ -70,34 +70,35 @@ describe('VibeDev defaults bundle', () => {
     ])
   })
 
-  it('replaces the DeepSeek account and its models with the VibeDev account and gateway models', () => {
+  it('keeps the DeepSeek account as DeepSeek Harness ships it and makes the VibeDev account plugin the main one', () => {
     const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
-    expect(targeted(parsed).slice(4, 8)).toEqual([
-      { id: 'deepseek-account', disabled: true },
-      { id: 'llm-deepseek-account', disabled: true },
+    // The DeepSeek account and its models are the second account: their rows are left alone.
+    expect(targeted(parsed).map(row => row.id)).not.toContain('deepseek-account')
+    expect(targeted(parsed).map(row => row.id)).not.toContain('llm-deepseek-account')
+    expect(targeted(parsed).slice(4, 6)).toEqual([
       { id: 'llm-deepseek', disabled: true },
-      { id: 'agent-default-model', config: { provider: 'deepseek-account', model: 'deepseek-v4-flash' } },
+      { id: 'agent-default-model', config: { provider: 'vibedev-gateway', model: 'deepseek-v4-flash' } },
     ])
-    const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'deepseek-account')
-    expect(inserted(parsed).slice(0, 2)).toEqual([
-      { id: 'vibedev-account', name: '@vibedev/dsh-account', config: { desktopPlatform: upstream?.config?.desktopPlatform } },
-      { id: 'llm-vibedev-gateway', name: '@vibedev/dsh-llm-gateway' },
+    expect(inserted(parsed)).toEqual([
+      { id: 'dsh-vibedev', name: '@vibedev-si/dsh-vibedev', config: { primary: true } },
     ])
-    expect(manifest.dependencies).toEqual({
-      '@vibedev/dsh-account': 'workspace:*',
-      '@vibedev/dsh-llm-gateway': 'workspace:*',
-      '@vibedev/dsh-web-search-gateway': 'workspace:*',
-    })
+    expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev-si/dsh-vibedev'])
   })
 
-  it('searches through the gateway instead of DeepSeek, keeping the upstream fetch provider', () => {
+  it('ships the plugin with the app at the same exact version, so it shows as built in and is never installed twice', () => {
+    const spec = manifest.dependencies?.['@vibedev-si/dsh-vibedev']
+    expect(spec).toMatch(/^(\d+\.\d+\.\d+|file:.+\.tgz)$/)
+    const cli = JSON.parse(readFileSync(resolve(root, '../../../apps/cli/package.json'), 'utf8')) as Manifest
+    expect(cli.dependencies?.['@vibedev-si/dsh-vibedev']).toBe(spec)
+  })
+
+  it('searches through the VibeDev plugin instead of DeepSeek, keeping the upstream fetch provider', () => {
     const parsed = loadPatch(resolve(root, 'cordis.patch.yml'))
     const upstream = rows(loadPatch(basePatch)).find(row => row.id === 'web')?.config
-    expect(targeted(parsed).slice(8)).toEqual([
+    expect(targeted(parsed).slice(6)).toEqual([
       { id: 'web-search-deepseek', disabled: true },
       { id: 'web', config: { ...upstream, searchProvider: 'vibedev-gateway' } },
     ])
-    expect(inserted(parsed).slice(2)).toEqual([{ id: 'web-search-vibedev', name: '@vibedev/dsh-web-search-gateway' }])
   })
 
   it('changes only rows that dsh-base defines and inserts only new ones, so no patch is dropped with a warning', () => {

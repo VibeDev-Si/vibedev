@@ -1,6 +1,6 @@
 {
   "name": "@vibedev/dsh-defaults",
-  "description": "VibeDev product defaults over dsh-base: no data uploads to DeepSeek, and the model is told it runs in VibeDev",
+  "description": "VibeDev product defaults over dsh-base: no data uploads to DeepSeek, the model is told it runs in VibeDev, and the VibeDev account plugin leads beside the DeepSeek account",
   "version": "0.2.1-alpha.1",
   "type": "module",
   "main": "lib/index.js",
@@ -21,9 +21,7 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@vibedev/dsh-account": "workspace:*",
-    "@vibedev/dsh-llm-gateway": "workspace:*",
-    "@vibedev/dsh-web-search-gateway": "workspace:*"
+    "@vibedev-si/dsh-vibedev": "0.2.1"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"
@@ -31,6 +29,14 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:~",
     "@deepseek-ai/cordis-plugin-include": "workspace:~",
+    "@deepseek-ai/dsh-attachment": "workspace:*",
+    "@deepseek-ai/dsh-brand": "workspace:*",
+    "@deepseek-ai/dsh-credentials": "workspace:*",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-timeout": "workspace:*",
+    "@deepseek-ai/dsh-tools": "workspace:*",
+    "@deepseek-ai/dsh-web": "workspace:*",
+    "@deepseek-ai/schemastery": "workspace:~",
     "js-yaml": "^4.2.0"
   },
   "dsh": {
