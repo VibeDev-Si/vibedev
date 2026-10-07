@@ -79,6 +79,38 @@ it('replaces the immutable cache header of plugin bundles with no-store and leav
   expect(asset.headers.get('cache-control')).toBe(immutable)
 })
 
+it('keeps the length and range of an uncompressed media response for desktop seeking', async () => {
+  const bytes = new Uint8Array([1, 2, 3, 4])
+  const fetch = vi.fn().mockResolvedValue(new Response(bytes, { status: 206, headers: {
+    'content-type': 'video/mp4', 'content-length': '4', 'content-range': 'bytes 100-103/31969500', 'accept-ranges': 'bytes',
+  } }))
+  vi.stubGlobal('fetch', fetch)
+  const response = await forwardWebRequest(new Request('dsh-app://app/api/video', { headers: { range: 'bytes=100-103' } }), 'http://127.0.0.1:1234/', 'session=owned')
+  expect(new Headers(fetch.mock.calls[0]?.[1].headers).get('range')).toBe('bytes=100-103')
+  expect(response.status).toBe(206)
+  expect(response.headers.get('content-length')).toBe('4')
+  expect(response.headers.get('content-range')).toBe('bytes 100-103/31969500')
+  expect(response.headers.get('accept-ranges')).toBe('bytes')
+  expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
+})
+
+it('discards the encoded length after fetch decoded a compressed response', async () => {
+  const fetch = vi.fn().mockResolvedValue(new Response('decoded response', { headers: { 'content-encoding': 'gzip', 'content-length': '42' } }))
+  vi.stubGlobal('fetch', fetch)
+  const response = await forwardWebRequest(new Request('dsh-app://app/api/read'), 'http://127.0.0.1:1234/', 'session=owned')
+  expect(response.headers.get('content-length')).toBeNull()
+  expect(response.headers.get('content-encoding')).toBeNull()
+  expect(await response.text()).toBe('decoded response')
+})
+
+it('retains a length when the server explicitly uses identity encoding', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('body', { headers: { 'content-encoding': 'identity', 'content-length': '4' } })))
+  const response = await forwardWebRequest(new Request('dsh-app://app/api/read'), 'http://127.0.0.1:1234/', 'session=owned')
+  expect(response.headers.get('content-length')).toBe('4')
+  expect(response.headers.get('content-encoding')).toBeNull()
+  expect(await response.text()).toBe('body')
+})
+
 it('refuses another page origin without forwarding its request', async () => {
   const fetch = vi.fn()
   vi.stubGlobal('fetch', fetch)
