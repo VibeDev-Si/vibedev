@@ -21,7 +21,7 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@vibedev-si/dsh-vibedev": "0.2.6"
+    "@vibedev-si/dsh-vibedev": "0.2.7"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"
