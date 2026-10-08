@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import sys
 import zipfile
@@ -95,8 +96,16 @@ def test_authoring_resources_validate_installed_and_wheel_payloads(tmp_path: Pat
     with zipfile.ZipFile(archive_path, "w") as archive:
         for path in root.rglob("*"):
             archive.write(path, str(path.relative_to(root)).replace("\\", "/"))
+            # POSIX wheel permissions live in ZIP metadata; NTFS chmod cannot supply them.
+            if path in (python, node) and target != "win-x64":
+                info = archive.getinfo(str(path.relative_to(root)).replace("\\", "/"))
+                invalid_mode = (path == python and invalid == "mode") or (path == node and invalid == "node-mode")
+                info.create_system = 3
+                info.external_attr = (stat.S_IFREG | (0o644 if invalid_mode else 0o755)) << 16
     with zipfile.ZipFile(archive_path) as archive:
-        for candidate in (root, zipfile.Path(archive)):
+        # Archived Unix payloads remain testable on Windows; installed mode bits do not.
+        candidates = (zipfile.Path(archive),) if os.name == "nt" and target != "win-x64" else (root, zipfile.Path(archive))
+        for candidate in candidates:
             if invalid is None:
                 validate_resources(candidate, target)
             else:
@@ -119,6 +128,7 @@ def test_explicit_mode_wins_over_env_mode(monkeypatch: pytest.MonkeyPatch) -> No
     assert args[0].endswith(("-x64", "-arm64"))
 
 
+@pytest.mark.skipif(os.name == "nt", reason="NTFS does not expose POSIX executable bits for installed Unix payloads")
 def test_runtime_requires_spawn_helper_only_on_macos(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -185,6 +195,7 @@ def test_runtime_requires_ripgrep_sidecar(
         runtime.bundled_runtime_path()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="NTFS does not expose POSIX executable bits for installed Unix payloads")
 def test_runtime_requires_complete_resource_sidecars(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -306,6 +317,8 @@ def test_windows_console_branch_preserves_real_child_io_and_completion(tmp_path:
 def test_runtime_requires_its_platform_office_engine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, native_targets: tuple[str, ...],
 ) -> None:
+    if os.name == "nt" and target != "win-x64":
+        pytest.skip("NTFS does not expose POSIX executable bits for installed Unix payloads")
     extension = ".exe" if target.startswith("win-") else ""
     executable = tmp_path / "runtime" / f"deepseek-harness-sdk-runtime-{target}{extension}"
     executable.parent.mkdir()
