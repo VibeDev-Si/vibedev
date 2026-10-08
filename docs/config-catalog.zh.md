@@ -590,6 +590,13 @@ export interface ContactConfig {
   bonusAckRetryDelayMs: number
   /** Ceiling for the acknowledgement retry backoff. */
   bonusAckRetryMaxDelayMs: number
+  /**
+   * VibeDev fork: the DeepSeek account is the app's second account. Its entry sits in the sidebar foot's action row
+   * and the settings launcher is left to the main account (the VibeDev account plugin's). Off: DeepSeek Harness's layout.
+   */
+  secondary: boolean
+  /** VibeDev fork: show the product onboarding after a DeepSeek sign-in (DeepSeek Harness does; VibeDev turns it off). */
+  onboarding: boolean
 }
 
 /** Persisted steps; a native top-up page leaves the durable step at credit. */
@@ -4340,6 +4347,96 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-workspace-changes -->
 
+<!-- BEGIN GENERATED config-catalog:@vibedev/dsh-account -->
+<a id="vibedevdsh-account"></a>
+
+## `@vibedev/dsh-account`
+
+- `inject`: `credentials` · `authorization`
+- `source`: [`packages/vibedev/account/src/index.ts:52`](../packages/vibedev/account/src/index.ts)
+
+```ts config-catalog
+/** Deployment choices. */
+export interface Config {
+  /** VibeDev gateway origin serving the sign-in page, token endpoints, account reads and models. */
+  gatewayOrigin?: string
+  /** Native desktop identity for gateway requests; null identifies the client as web. */
+  desktopPlatform?: 'darwin' | 'win32' | null
+  /** Allow HTTP only on loopback, for a development or test gateway. */
+  allowLoopbackHttp?: boolean
+  /** Deadline for each gateway HTTP request. */
+  requestTimeoutMs?: number
+  /** Upper bound for one browser sign-in attempt. */
+  attemptTimeoutMs?: number
+  /** Refresh the access token when it has less than this long left. */
+  refreshSkewMs?: number
+  /** Additional revoke attempts after the first one fails, at most five. */
+  logoutMaxRetries?: number
+  /** Delay before the first revoke retry; each later delay doubles. */
+  logoutRetryDelayMs?: number
+}
+```
+<!-- END GENERATED config-catalog:@vibedev/dsh-account -->
+
+<!-- BEGIN GENERATED config-catalog:@vibedev/dsh-llm-gateway -->
+<a id="vibedevdsh-llm-gateway"></a>
+
+## `@vibedev/dsh-llm-gateway`
+
+- `inject`: `llm`
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/vibedev/llm-gateway/src/index.ts:50`](../packages/vibedev/llm-gateway/src/index.ts)
+
+```ts config-catalog
+/** Gateway origin, catalog refresh policy and model request settings. */
+export interface Config {
+  /** Gateway origin; requests and the catalog go to `<origin>/v1/...`. */
+  gatewayOrigin: string
+  /** Name selectors show for the route. */
+  displayName: string
+  /** Environment variable holding a signature-exempt development key, used only while nobody is signed in. */
+  apiKeyEnv: string
+  /** Minutes between catalog reads while the app runs. */
+  catalogRefreshMinutes: number
+  /** Timeout for one catalog read. */
+  catalogTimeoutMs: number
+  /** Prompt-cache retention requested from providers that support it. */
+  cacheRetention: 'none' | 'short' | 'long'
+  /**
+   * Models listed first, in this order, when the catalog offers them. The first one is what a
+   * fresh sign-in selects, since the session controller picks the channel's first model. Read at
+   * every catalog read.
+   */
+  preferredModels: Volatile<string[]>
+}
+```
+<!-- END GENERATED config-catalog:@vibedev/dsh-llm-gateway -->
+
+<!-- BEGIN GENERATED config-catalog:@vibedev/dsh-web-search-gateway -->
+<a id="vibedevdsh-web-search-gateway"></a>
+
+## `@vibedev/dsh-web-search-gateway`
+
+- `inject`: `web`
+- `source`: [`packages/vibedev/web-search-gateway/src/index.ts:34`](../packages/vibedev/web-search-gateway/src/index.ts)
+
+```ts config-catalog
+/** Gateway search endpoint, development credential name and bounded retry policy. */
+export interface Config {
+  /** Gateway origin; searches go to `<origin>/v1/vibedev/web-search`. */
+  gatewayOrigin: string
+  /** Environment variable holding a signature-exempt development key, used only while nobody is signed in. */
+  apiKeyEnv: string
+  /** Deadline for one search request. */
+  requestTimeoutMs: number
+  /** Retries after a rate-limited or busy answer. */
+  maxRetries: number
+  /** Longest `Retry-After` waited out before the search fails. */
+  maxRetryWaitMs: number
+}
+```
+<!-- END GENERATED config-catalog:@vibedev/dsh-web-search-gateway -->
+
 ## 无配置的可加载插件
 
 这些插件通过 `cordis.yml` 中不含 `config:` 块的条目加载；它们未声明任何配置接口。
@@ -4447,6 +4544,7 @@ export interface Config {
 | `@deepseek-ai/dsh-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
 | `@deepseek-ai/dsh-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/webhook/webhook/src/index.ts`](../packages/webhook/webhook/src/index.ts) |
 | `@deepseek-ai/dsh-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
+| `@vibedev/dsh-client-brand` | — | [`packages/vibedev/client-brand/src/index.ts`](../packages/vibedev/client-brand/src/index.ts) |
 <!-- END GENERATED config-catalog:no-config -->
 
 ## Seam 包（不可直接加载）
@@ -4539,4 +4637,6 @@ export interface Config {
 | `@deepseek-ai/dsh-util-values` | — | [`packages/util/values/src/index.ts`](../packages/util/values/src/index.ts) |
 | `@deepseek-ai/dsh-util-workspace-path` | — | [`packages/util/workspace-path/src/index.ts`](../packages/util/workspace-path/src/index.ts) |
 | `@deepseek-ai/dsh-win32-process` | — | [`packages/subprocess/win32-process/src/index.ts`](../packages/subprocess/win32-process/src/index.ts) |
+| `@vibedev/dsh-defaults` | — | [`packages/vibedev/defaults/src/index.ts`](../packages/vibedev/defaults/src/index.ts) |
+| `@vibedev/dsh-web-defaults` | — | [`packages/vibedev/web-defaults/src/index.ts`](../packages/vibedev/web-defaults/src/index.ts) |
 <!-- END GENERATED config-catalog:library -->

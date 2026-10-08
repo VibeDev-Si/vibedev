@@ -30,6 +30,7 @@ export type { GatewaySearchCredential, GatewaySearchOptions } from './provider.t
 export const name = 'web-search-vibedev'
 export const inject = ['web']
 
+/** Gateway search endpoint, development credential name and bounded retry policy. */
 export interface Config {
   /** Gateway origin; searches go to `<origin>/v1/vibedev/web-search`. */
   gatewayOrigin: string

@@ -90,6 +90,7 @@ export const tokenPair = z.object({
   session_id: z.string().min(1).optional(),
   user: z.unknown().optional(),
 })
+/** Validated access and refresh tokens returned by gateway authorization. */
 export type TokenPair = z.infer<typeof tokenPair>
 
 /** The fields of `GET /v1/account/auth/me` the account surfaces use; the gateway sends more. */
@@ -101,6 +102,7 @@ export const accountMe = z.object({
   balance: z.union([z.number(), z.string()]),
   currency: z.enum(['CNY', 'USD']).optional(),
 })
+/** Validated identity and balance fields read by the account service. */
 export type AccountMe = z.infer<typeof accountMe>
 
 const envelope = z.object({ code: z.literal(0), data: z.unknown() })

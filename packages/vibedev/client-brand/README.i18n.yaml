@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/vibedev/client-brand/README.md
+/:
+  en: ae4669c37e083bbc
+  zh: f0a0048ab428531e
+/vibedev-dsh-client-brand:
+  en: b6208810d1dbb2b7
+  zh: 2254b832fd41a9e5
+/vibedev-dsh-client-brand/summary:
+  en: 9fa423eee4f1ba67
+  zh: de7cfad0578e23a8
+/vibedev-dsh-client-brand/table-of-contents:
+  en: c3ea8919bd046557
+  zh: e217782b705909f0
+/vibedev-dsh-client-brand/configuration-and-ownership:
+  en: 478bcb6c53646225
+  zh: 7b0c1bcbd2f00be7
+/vibedev-dsh-client-brand/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/vibedev-dsh-client-brand/model-experience/browser-presentation:
+  en: 9fa2160b0b1043b8
+  zh: f83217c0c504a5c5
+/vibedev-dsh-client-brand/model-experience/browser-presentation/what-the-model-sees:
+  en: 9cfb05d53eca1212
+  zh: e7ec79748a1cb17d
+/vibedev-dsh-client-brand/model-experience/browser-presentation/token-effect:
+  en: 03a0e7723155d171
+  zh: 1b6153dcead4f7e0
+/vibedev-dsh-client-brand/model-experience/browser-presentation/kv-cache-effect:
+  en: d9627e53bcee8049
+  zh: 18ebe28148c8af91
+/vibedev-dsh-client-brand/known-limitations-and-deferred-work:
+  en: 4ba7c9129a47293b
+  zh: c2f496e692aa2844
+/vibedev-dsh-client-brand/known-limitations-and-deferred-work/dev-note:
+  en: b836f01bd0bceb4a
+  zh: 6dcebdfde2290938

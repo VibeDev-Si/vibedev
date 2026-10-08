@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/vibedev/defaults/README.md
+/:
+  en: 0aef1ee4444ebde8
+  zh: 5a2b54f93eea87a3
+/vibedev-dsh-defaults:
+  en: c69dbe288536c6ca
+  zh: edbc50193f96b91d
+/vibedev-dsh-defaults/summary:
+  en: a4ba0274a6365b12
+  zh: e231d53978001532
+/vibedev-dsh-defaults/table-of-contents:
+  en: c3ea8919bd046557
+  zh: e217782b705909f0
+/vibedev-dsh-defaults/configuration-and-ownership:
+  en: 20c6f87d853f0dbc
+  zh: 18b8bacb36934bf3
+/vibedev-dsh-defaults/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/vibedev-dsh-defaults/model-experience/product-identity:
+  en: 3488e65a0f897971
+  zh: a514515b2e477f89
+/vibedev-dsh-defaults/model-experience/product-identity/what-the-model-sees:
+  en: 136299d401673769
+  zh: 9bfd3ef98889ab4a
+/vibedev-dsh-defaults/model-experience/product-identity/what-the-model-sees/package-owned-prompt-text:
+  en: 0e3c1d57f5291ffb
+  zh: 2330f6df0a945aa6
+/vibedev-dsh-defaults/model-experience/product-identity/token-effect:
+  en: 36a49b9fcf5e9c2c
+  zh: 6237992ea16fad02
+/vibedev-dsh-defaults/model-experience/product-identity/kv-cache-effect:
+  en: 67261b99578d140e
+  zh: 2f75344d9fb717b3
+/vibedev-dsh-defaults/known-limitations-and-deferred-work:
+  en: 3d62ed36af8824e3
+  zh: d9bf33681330bb9a
+/vibedev-dsh-defaults/known-limitations-and-deferred-work/dev-note:
+  en: b836f01bd0bceb4a
+  zh: 6dcebdfde2290938

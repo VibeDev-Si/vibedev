@@ -477,6 +477,15 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 |---|---|---|
 | `@deepseek-ai/dsh-typert-loader` | yes | Loader integration for generated Typert package contributions |
 
+## vibedev
+
+| Package | Config | Description |
+|---|---|---|
+| `@vibedev/dsh-account` | yes | VibeDev account provider for the DSH account seam: browser PKCE sign-in to the VibeDev gateway with app tokens |
+| `@vibedev/dsh-client-brand` | no | VibeDev brand occupants for the Web client's sidebar and blank-session hero slots |
+| `@vibedev/dsh-llm-gateway` | yes | VibeDev gateway models for the DSH account channel: the gateway catalog, per-model wire protocols, reasoning levels, and app-token authentication |
+| `@vibedev/dsh-web-search-gateway` | yes | VibeDev gateway web search for the DSH web capability seam (ctx.web), authenticated like the gateway models |
+
 ## web
 
 | Package | Config | Description |

@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/vibedev/web-defaults/README.md
+/:
+  en: 1831afa62a951199
+  zh: 1fa06b723c954d7b
+/vibedev-dsh-web-defaults:
+  en: c8ebc6bca6a35894
+  zh: f6e86363f9df1641
+/vibedev-dsh-web-defaults/summary:
+  en: 591fdc783413fd48
+  zh: 810fbb340d0956ee
+/vibedev-dsh-web-defaults/table-of-contents:
+  en: c3ea8919bd046557
+  zh: e217782b705909f0
+/vibedev-dsh-web-defaults/configuration-and-ownership:
+  en: 88e3c957da89eab8
+  zh: ccb1db808d7a4d21
+/vibedev-dsh-web-defaults/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/vibedev-dsh-web-defaults/model-experience/web-persona-and-plugin-guidance:
+  en: 1668f07e7a60747b
+  zh: 19ca621faeb869ef
+/vibedev-dsh-web-defaults/model-experience/web-persona-and-plugin-guidance/what-the-model-sees:
+  en: a837984282002478
+  zh: eb45d11d7bd0985d
+/vibedev-dsh-web-defaults/model-experience/web-persona-and-plugin-guidance/what-the-model-sees/package-owned-prompt-text:
+  en: 0e3c1d57f5291ffb
+  zh: 2330f6df0a945aa6
+/vibedev-dsh-web-defaults/model-experience/web-persona-and-plugin-guidance/token-effect:
+  en: 6f7dafc905a3db2d
+  zh: a732b77486d53417
+/vibedev-dsh-web-defaults/model-experience/web-persona-and-plugin-guidance/kv-cache-effect:
+  en: 2fddc2d00a698a7b
+  zh: 3e1bd760117bef64
+/vibedev-dsh-web-defaults/known-limitations-and-deferred-work:
+  en: a9f5a2257ea8ff69
+  zh: 23b65ead600a7406
+/vibedev-dsh-web-defaults/known-limitations-and-deferred-work/dev-note:
+  en: b836f01bd0bceb4a
+  zh: 6dcebdfde2290938

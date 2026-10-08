@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/vibedev/README.md
+/:
+  en: 65b2b8e4bece3a41
+  zh: 3916e47aebdd7d1c
+/vibedev-vibedev-product-packages:
+  en: 07542da72fb43ab5
+  zh: 476e081d60be8780
+/vibedev-vibedev-product-packages/summary:
+  en: e5d632d774013ec6
+  zh: 6ccbe8b3f9d3ec82
+/vibedev-vibedev-product-packages/table-of-contents:
+  en: eeda93b794e44fb6
+  zh: 0289dcf3d117675f
+/vibedev-vibedev-product-packages/packages:
+  en: 45c4537f4dbed17c
+  zh: 0f36c0366a54af5f
+/vibedev-vibedev-product-packages/subsystem-ownership:
+  en: 63e03f58cb67e1a8
+  zh: 19b43651b8ee33d2
+/vibedev-vibedev-product-packages/dev-note:
+  en: b75c8458928b72b9
+  zh: b8227aa43454c831

@@ -7,6 +7,7 @@
 const LEADING_PROVIDERS: readonly string[] = ['vibedev-gateway', 'deepseek-account', 'deepseek-official']
 
 /**
+ * Rank the VibeDev, DeepSeek account and official routes ahead of other providers.
  * @param id - provider route id.
  * @returns the provider's place among the leading ones, or one past them.
  */

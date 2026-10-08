@@ -46,6 +46,7 @@ export const PROVIDER = 'deepseek-account'
 /** Shortest gap between two catalog reads that an empty model list asks for. */
 const ON_DEMAND_READ_GAP_MS = 15_000
 
+/** Gateway origin, catalog refresh policy and model request settings. */
 export interface Config {
   /** Gateway origin; requests and the catalog go to `<origin>/v1/...`. */
   gatewayOrigin: string
