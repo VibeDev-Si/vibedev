@@ -226,6 +226,29 @@ function lookupWinner(matrixCase: LookupCase): LookupLayer | 'interception' | 'm
 }
 
 describe('runtime resolution', { concurrent: false }, () => {
+  it('keeps an application-owned plugin on the shipped version despite an older direct profile dependency', async () => {
+    const f = fixture('@vibedev-si/dsh-vibedev')
+    const name = '@vibedev-si/dsh-vibedev'
+    const local = join(f.profile.dir, 'node_modules', name)
+    pkg(local, name, 2)
+    file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: { [name]: '*' } }))
+    const resolution = await createRuntimeResolution({
+      installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
+    })
+    const registration = installRuntimeInterception(resolution)
+    registrations.push(registration)
+    const parent = join(f.profile.dir, 'entry.cjs')
+    expect(createRequire(parent).resolve(name)).toBe(join(f.installed, 'index.cjs'))
+    expect(resolveFrom(name, pathToFileURL(parent).href)).toBe(pathToFileURL(join(f.installed, 'index.js')).href)
+    expect(registration.packageDir(name, pathToFileURL(parent).href)).toBe(f.installed)
+    expect((await resolution.computeLatestResolution()).entries.find(entry => entry.name === name)?.applicationOwned).toBe(true)
+    const successor: RuntimeResolution = { profilesDir: resolution.profilesDir, profileDir: resolution.profileDir,
+      localPackageNames: resolution.localPackageNames, linkedRoots: resolution.linkedRoots,
+      entries: resolution.entries.map(entry => ({ ...entry, applicationOwned: false })) }
+    expect(() => { registration.replace(successor) }).toThrow('requires a process restart')
+    expect(existsSync(join(local, 'package.json'))).toBe(true)
+  })
+
   it('computes an immutable runtime resolution without writing profile packages', async () => {
     const f = fixture()
     const resolution = await resolutionOf(f)

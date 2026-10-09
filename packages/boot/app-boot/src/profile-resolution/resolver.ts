@@ -386,6 +386,7 @@ class ResolutionRouter {
         || !sameResolution(current.packageDir, next.packageDir)
         || (current.scope === 'installation' && !sameResolution(current.declarer, next.declarer))
         || current.version !== next.version
+        || current.applicationOwned !== next.applicationOwned
         || current.scope !== next.scope) {
         throw new Error(`profile resolution: replacing ${JSON.stringify(name)} requires a process restart`)
       }
@@ -465,6 +466,11 @@ class ResolutionRouter {
     if (layer.kind === 'linked') return this.routeLinked(request, name, parent, resolution, flavor, cjs)
 
     const target = resolution.entries.get(name)
+    if (layer.active && target?.scope === 'installation' && target.applicationOwned === true) {
+      const state = { route: { kind: 'interception' as const, entry: target, after: layer.after } }
+      requests.set(request, state)
+      return state
+    }
     const candidates: string[] = []
     const localSearchPaths: string[] = []
     for (const searchPath of createRequire(parent).resolve.paths(name) as string[]) {
@@ -558,7 +564,8 @@ class ResolutionRouter {
   ): ResolutionRouteState | undefined {
     const name = barePackageName(request)
     const { layer } = parentRoutes
-    if (name === undefined || layer.kind !== 'profile' || !layer.active || !resolution.localPackageNames.has(name)) return undefined
+    if (name === undefined || layer.kind !== 'profile' || !layer.active || !resolution.localPackageNames.has(name)
+      || resolution.entries.get(name)?.applicationOwned === true) return undefined
     const state = { route: { kind: 'native' as const } }
     parentRoutes.requests.set(request, state)
     return state

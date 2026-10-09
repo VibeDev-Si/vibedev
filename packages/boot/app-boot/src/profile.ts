@@ -133,6 +133,8 @@ export interface RuntimeResolutionEntry {
   readonly declarer: string
   /** Whether every profile or only the active profile receives this entry. */
   readonly scope: 'installation' | 'profile'
+  /** Application-owned plugin: its shipped version wins over a historical profile installation. */
+  readonly applicationOwned?: boolean
 }
 
 /**
@@ -433,6 +435,8 @@ export interface RuntimeResolutionOptions {
   profile?: Profile
   /** Harness home; defaults to {@link resolveDshHome}. */
   home?: string
+  /** Application-owned plugin names; never inferred from third-party profile declarations. */
+  installationPlugins?: readonly string[]
 }
 
 /**
@@ -443,7 +447,7 @@ export interface RuntimeResolutionOptions {
 export async function createRuntimeResolution(
   options: RuntimeResolutionOptions,
 ): Promise<ProfileRuntimeResolution> {
-  const { installAnchor, profile, home = resolveDshHome() } = options
+  const { installAnchor, profile, home = resolveDshHome(), installationPlugins = [] } = options
   const profilesDir = join(home, PROFILES_DIR)
   const manifest = readOptionalProfileManifest(profile)
   const { packageNames, packageDirs, declarers, versions } = collectInstallationScopePackages(
@@ -456,8 +460,13 @@ export async function createRuntimeResolution(
     ? new Map<string, string>()
     : collectProfileScopePackages(profile, packageNames, profileDeclarers, profileVersions)
   const linkedRoots = profile === undefined ? [] : linkedProfileRoots(profile, profilesDir)
+  for (const name of installationPlugins) {
+    if (!packageNames.has(name)) throw new Error(`Application-owned plugin ${JSON.stringify(name)} is missing from the installation`)
+  }
   // The Promise return type is the pre-stable API; construction has no asynchronous step.
-  return await Promise.resolve(new ProfileRuntimeResolution({ installAnchor, profileDir: profile?.dir, home }, {
+  return await Promise.resolve(new ProfileRuntimeResolution({
+    installAnchor, profileDir: profile?.dir, home, installationPlugins: Object.freeze([...installationPlugins]),
+  }, {
     profilesDir,
     profileDir: profile?.dir,
     localPackageNames: Object.freeze(localPackageNames),
@@ -466,6 +475,7 @@ export async function createRuntimeResolution(
       ...[...packageDirs].map(([name, packageDir]) => Object.freeze({
         name, packageDir, version: versions.get(name),
         declarer: declarers.get(name) as string, scope: 'installation' as const,
+        ...installationPlugins.includes(name) ? { applicationOwned: true } : {},
       })),
       ...[...profilePackages].map(([name, packageDir]) => Object.freeze({
         name, packageDir, version: profileVersions.get(name),
@@ -480,6 +490,7 @@ interface ResolutionSource {
   installAnchor: string
   home: string
   profileDir: string | undefined
+  installationPlugins?: readonly string[]
 }
 
 /**
@@ -515,9 +526,9 @@ export class ProfileRuntimeResolution implements RuntimeResolution {
    * @returns a new resolution for the latest generation.
    */
   computeLatestResolution(): Promise<ProfileRuntimeResolution> {
-    const { installAnchor, home, profileDir } = this.#source
+    const { installAnchor, home, profileDir, installationPlugins } = this.#source
     return createRuntimeResolution({
-      installAnchor, home,
+      installAnchor, home, installationPlugins: installationPlugins ?? [],
       ...profileDir === undefined ? {} : { profile: loadProfileDirectory('dsh', profileDir, installAnchor) },
     })
   }

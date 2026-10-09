@@ -512,12 +512,12 @@ async function main(): Promise<void> {
             focusPrimaryWindow()
           }
           if (welcomeFollows && state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) void enterWorkspace({ activate: false }).catch(() => undefined)
-          if (previousAccountStatus === 'credential-stored' && state.status === 'signed-out') {
+          if (welcomeFollows && previousAccountStatus === 'credential-stored' && state.status === 'signed-out') {
             void readWelcomeState().then(async (value) => {
               if (needsWelcome(value) && !quitting) {
                 enteredWorkspace = false
                 await showWelcome()
-                if (welcomeFollows && welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
+                if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
                   welcomeWindow.webContents.send(WELCOME_IPC.state, state)
                 }
               }
@@ -528,13 +528,14 @@ async function main(): Promise<void> {
         }, () => {
           // The stream reconnects; a transport failure does not change account state.
         }, () => {
+          if (!welcomeFollows) return
           void readWelcomeState().then(async (value) => {
             if (!needsWelcome(value) || quitting) return
             pendingWelcomeNotice = 'session-expired'
             enteredWorkspace = false
             await showWelcome()
             const state = await accountBackend.state()
-            if (welcomeFollows && welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
+            if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) {
               welcomeWindow.webContents.send(WELCOME_IPC.state, state)
             }
           }).catch(() => undefined)

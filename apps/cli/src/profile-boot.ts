@@ -202,7 +202,8 @@ async function composeProfile(
 ): Promise<ComposedProfile> {
   const profile = resolvedProfile?.profile ?? prepareProfile(name, true, fromDefaultProfile)
   if (resolvedProfile !== undefined) writeFileSync(join(profile.dir, PROFILE_ROOT_FILENAME), PROFILE_ROOT_CONFIG)
-  const resolutionOptions = { installAnchor: resolvedProfile?.installAnchor ?? INSTALL_ANCHOR, profile }
+  const resolutionOptions = { installAnchor: resolvedProfile?.installAnchor ?? INSTALL_ANCHOR, profile,
+    installationPlugins: resolvedProfile?.installationPlugins ?? [] }
   const resolution = await createRuntimeResolution(resolutionOptions)
   const overlays = patchFiles.flatMap(file => loadOverlayPatches(NAME, resolve(file)))
   return { profile, resolution, overlays }
@@ -214,6 +215,8 @@ export interface ResolvedProfileRuntime {
   profile: Profile
   /** Absolute package.json path of the application's dsh installation. */
   installAnchor: string
+  /** Application-managed plugin versions, independent of historical profile package copies. */
+  installationPlugins?: readonly string[]
 }
 
 /** Options for {@link runProfile}. */
@@ -290,6 +293,7 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
       dir: composed.profile.dir, patchPath: composed.profile.patchPath,
       installAnchor: options.resolvedProfile?.installAnchor ?? INSTALL_ANCHOR,
       startedBundles: composed.profile.layers.map(layer => layer.packageName),
+      installationPlugins: options.resolvedProfile?.installationPlugins ?? [],
       cwd: process.cwd(), home: resolveDshHome(),
       overlays: composed.overlays, telemetryDisabledEnv: process.env.DSH_TELEMETRY_DISABLED,
     }

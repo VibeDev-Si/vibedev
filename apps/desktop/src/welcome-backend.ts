@@ -121,11 +121,12 @@ export async function connectDesktopWelcome(
       Object.assign(states, batch)
     }
     if (ref !== undefined && !record(states[ref])) throw new Error('desktop welcome: missing credential metadata')
+    const primary = await vibedevAccount()
     return {
-      // VibeDev: either account gives the app working models, so neither sign-in asks for the welcome again.
-      loggedIn: (await account.state()).status === 'credential-stored'
-        || (await (await vibedevAccount())?.state())?.status === 'credential-stored',
-      hasApiKey: Object.values(states).some(value => record(value) && value.configured === true),
+      // A primary VibeDev account owns entry; secondary accounts and provider keys cannot bypass its logout.
+      // Without that primary account, retain the official DeepSeek/key onboarding policy.
+      loggedIn: (await (primary ?? account).state()).status === 'credential-stored',
+      hasApiKey: primary === undefined && Object.values(states).some(value => record(value) && value.configured === true),
       writable: ref !== undefined && record(states[ref]) && states[ref].writable === true,
       localePreference: localePreference(namespaces),
     }

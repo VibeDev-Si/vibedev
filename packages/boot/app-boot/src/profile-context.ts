@@ -23,6 +23,8 @@ export interface ProfileContext {
   readonly home: string
   /** Bundle packages used to start this process, before any persisted edits. */
   readonly startedBundles: readonly string[]
+  /** Launcher-owned plugins already configured by an application bundle; their standalone patches are redundant. */
+  readonly installationPlugins?: readonly string[]
   /** Parsed command-line overlays, applied above profile and home patches. */
   readonly overlays: readonly PatchOptions[]
   /** Launch-time DSH_TELEMETRY_DISABLED value; any non-empty value opts out. */
@@ -62,8 +64,11 @@ export function resolveTelemetryPatch(disabledEnv: string | undefined, hasRow: b
  */
 export function readProfilePatches(binName: string, context: ProfileContext, initialProfile?: Profile): PatchOptions[] {
   const profile = initialProfile ?? loadProfileDirectory(binName, context.dir, context.installAnchor, { userLayer: false })
+  const owned = new Set(context.installationPlugins ?? [])
+  const layers = profile.layers.filter(layer => !owned.has(layer.packageName)
+    || !profile.layers.some(owner => owner !== layer && composeEntries([owner.patches]).some(row => row.name === layer.packageName)))
   const patches = structuredClone([
-    ...profile.layers.flatMap(layer => layer.patches),
+    ...layers.flatMap(layer => layer.patches),
     ...(initialProfile?.patches ?? loadOptionalPatches(binName, context.patchPath) ?? []),
     ...(loadOptionalPatches(binName, join(context.home, PROFILE_PATCH_FILENAME)) ?? []),
     ...context.overlays,

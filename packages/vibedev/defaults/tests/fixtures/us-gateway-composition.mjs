@@ -7,11 +7,13 @@ import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const defaults = fileURLToPath(new URL('../..', import.meta.url))
+const packagedRuntime = process.env.VIBEDEV_COMPOSITION_RUNTIME
+const defaults = packagedRuntime === undefined ? fileURLToPath(new URL('../..', import.meta.url))
+  : join(packagedRuntime, 'node_modules/@vibedev/dsh-defaults')
 const repo = join(defaults, '../../..')
 const require = createRequire(join(defaults, 'package.json'))
 const yaml = require('js-yaml')
-const { boot } = await import(pathToFileURL(join(repo, 'packages/boot/app-boot/lib/index.js')).href)
+const { boot, createRuntimeResolution, loadProfileDirectory, PluginPackages, readProfilePatches } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
 const { createUserMessage } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href)
 const american = 'https://api.vibedev.studio'
 const tmp = await mkdtemp(join(tmpdir(), 'vibedev-us-loader-'))
@@ -87,16 +89,41 @@ try {
   assert.equal(productionRow.config.gatewayOrigin, american)
   assert.equal(productionRow.config.apiKeyEnv, '')
   const start = async (label, selected) => {
-    const config = join(tmp, `${label}.cordis.yml`)
+    const profileDir = join(process.env.DSH_HOME, 'profiles', label)
+    const config = join(profileDir, 'cordis.yml')
+    const oldPlugin = join(profileDir, 'node_modules/@vibedev-si/dsh-vibedev')
+    await mkdir(oldPlugin, { recursive: true })
+    await writeFile(join(oldPlugin, 'package.json'), JSON.stringify({ name: '@vibedev-si/dsh-vibedev', version: '0.2.6', type: 'module', main: 'index.js', dsh: { bundle: { patch: 'cordis.patch.yml' } } }))
+    await writeFile(join(oldPlugin, 'index.js'), 'throw new Error("Historical profile account plugin must never load")\n')
+    await writeFile(join(oldPlugin, 'cordis.patch.yml'), '- insert:\n  - id: dsh-vibedev\n    name: "@vibedev-si/dsh-vibedev"\n')
+    await writeFile(join(profileDir, 'package.json'), JSON.stringify({ name: `fixture-${label}`, dependencies: { '@vibedev-si/dsh-vibedev': '0.2.6' }, dsh: { profile: { bundles: ['@vibedev/dsh-defaults', '@vibedev-si/dsh-vibedev'] } } }))
+    const installAnchor = packagedRuntime === undefined ? join(repo, 'apps/cli/package.json')
+      : join(packagedRuntime, 'node_modules/@deepseek-ai/dsh/package.json')
+    const profile = loadProfileDirectory('fixture', profileDir, installAnchor)
+    assert.deepEqual(profile.skippedBundles, [])
+    const profileContext = { name: label, dir: profileDir, home: process.env.DSH_HOME, installAnchor,
+      patchPath: profile.patchPath, cwd: tmp, startedBundles: profile.layers.map(layer => layer.packageName),
+      installationPlugins: ['@vibedev-si/dsh-vibedev'], telemetryDisabledEnv: undefined,
+      overlays: [{ id: 'dsh-vibedev', config: { ...selected, stateDir, openBrowserOnSignIn: false } }] }
+    const resolution = await createRuntimeResolution({ installAnchor, profile, home: process.env.DSH_HOME,
+      installationPlugins: profileContext.installationPlugins })
     const rows = [
-      { id: 'system-prompt', name: createRequire(require.resolve('@deepseek-ai/dsh-tools')).resolve('@deepseek-ai/dsh-system-prompt') },
-      { id: 'llm', name: require.resolve('@deepseek-ai/dsh-llm') },
-      { id: 'tools', name: require.resolve('@deepseek-ai/dsh-tools') },
-      { id: 'web', name: require.resolve('@deepseek-ai/dsh-web'), config: { searchProvider: 'vibedev-gateway' } },
-      { ...productionRow, name: require.resolve('@vibedev-si/dsh-vibedev'), config: { ...selected, stateDir, openBrowserOnSignIn: false } },
+      { id: 'system-prompt', name: pathToFileURL(createRequire(require.resolve('@deepseek-ai/dsh-tools')).resolve('@deepseek-ai/dsh-system-prompt')).href },
+      { id: 'llm', name: pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href },
+      { id: 'tools', name: pathToFileURL(require.resolve('@deepseek-ai/dsh-tools')).href },
+      { id: 'web', name: pathToFileURL(require.resolve('@deepseek-ai/dsh-web')).href, config: { searchProvider: 'vibedev-gateway' } },
     ]
-    await writeFile(config, yaml.dump(rows))
-    const ctx = await boot('migration-fixture', config, undefined, undefined, pathToFileURL(join(repo, 'apps/cli/package.json')).href)
+    await writeFile(config, '[]\n')
+    const patches = [{ insert: rows }, ...readProfilePatches('fixture', profileContext, profile)]
+    const ctx = await boot('migration-fixture', config, patches, async ctx => {
+      ctx.provide('profileContext', profileContext)
+      await ctx.plugin(PluginPackages, { resolution })
+    })
+    const account = ctx.loader.resolve('include:dsh-vibedev')
+    assert.equal(account.options.config.primary, true)
+    assert.equal(account.options.config.gatewayOrigin, american)
+    assert.equal(ctx.pluginPackages.packageOf('@vibedev-si/dsh-vibedev', pathToFileURL(config).href).version, '0.2.8-us.2')
+    assert.equal(JSON.parse(await readFile(join(oldPlugin, 'package.json'), 'utf8')).version, '0.2.6')
     contexts.push(ctx)
     return ctx
   }
@@ -150,7 +177,7 @@ try {
   assert.equal(await readFile(join(tmp, 'local-chat.json'), 'utf8'), '{"conversation":"fixture-preserved"}')
   await us.fiber.dispose()
   assert.equal(us.get('vibedevMedia'), undefined)
-  console.log(JSON.stringify({ ok: true, installedPlugin: require('@vibedev-si/dsh-vibedev/package.json').version, loader: true, originIsolation: true, pkceStateLoopbackAppToken: true, hiddenBeforeLogin: true, searchOnSelectedAPI: true, sseHeartbeatAndCancel: true, preservedLegacyAndOtherData: true, disposed: true }))
+  console.log(JSON.stringify({ ok: true, installedPlugin: require('@vibedev-si/dsh-vibedev/package.json').version, loader: true, upgradedProfileUsesBuiltInPrimary: true, originIsolation: true, pkceStateLoopbackAppToken: true, hiddenBeforeLogin: true, searchOnSelectedAPI: true, sseHeartbeatAndCancel: true, preservedLegacyAndOtherData: true, disposed: true }))
 } finally {
   for (const ctx of contexts) await ctx.fiber.dispose()
   globalThis.fetch = nativeFetch

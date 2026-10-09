@@ -1794,6 +1794,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [],
       },
       {
+        signature: 'readonly installationPlugins?: readonly string[]',
+        description: 'Launcher-owned plugins already configured by an application bundle; their standalone patches are redundant.',
+        parameters: [],
+      },
+      {
         signature: 'readonly overlays: readonly PatchOptions[]',
         description: 'Parsed command-line overlays, applied above profile and home patches.',
         parameters: [],

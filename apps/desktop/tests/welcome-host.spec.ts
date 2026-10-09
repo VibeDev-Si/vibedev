@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
 function transport(preference?: string) {
+  const accounts = { deepseek: 'signed-out', vibedev: undefined as { primary: boolean; source: string } | undefined }
   const keys = new Map<string, string>()
   const namespaces = [
     { ns: 'llm-deepseek', value: { apiKeyEnv: 'CUSTOM_DEEPSEEK_KEY' } },
@@ -10,6 +11,10 @@ function transport(preference?: string) {
     { ns: 'locale', value: preference === undefined ? {} : { preference } },
   ]
   const send = vi.fn<Parameters<typeof connectDesktopWelcome>[1]>(async (_input, init) => {
+    if (_input.includes('/api/dsh-vibedev/account') && accounts.vibedev !== undefined) {
+      return Response.json({ ...accounts.vibedev, pending: null, models: { count: 0, hidden: 'signed-out' },
+        links: { topUp: 'https://api.vibedev.studio/purchase', usage: 'https://api.vibedev.studio/usage', register: 'https://api.vibedev.studio/register' } })
+    }
     if (init?.method !== 'POST') return new Response('index')
     const { rpcId, method, payload } = JSON.parse(init.body as string) as {
       rpcId: string
@@ -17,7 +22,7 @@ function transport(preference?: string) {
       payload: { args: { ref: string; value: string; refs: string[] } }
     }
     let value: unknown
-    if (method === 'account/getState') value = { links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null }
+    if (method === 'account/getState') value = { links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: accounts.deepseek, attempt: null }
     else if (method === 'settings/describe') value = { namespaces }
     else if (method === 'llm/listConfigurableProviders') value = [{ settingsNs: 'llm-pi-ai', settingsPath: ['profiles', 'example'] }]
     else if (method === 'productAnalytics/enabled') value = true
@@ -26,12 +31,39 @@ function transport(preference?: string) {
     else value = Object.fromEntries(payload.args.refs.map(ref => [ref, { configured: keys.has(ref), writable: true }]))
     return Response.json({ type: 'server-response', rpcId, result: { ok: true, value } })
   })
-  return { send, keys, namespaces }
+  return { send, keys, namespaces, accounts }
 }
 
 const url = 'http://127.0.0.1:19387/?token=fixture'
 
 describe('desktop welcome Web operations', () => {
+  it('uses only the VibeDev primary account for entry and logout, regardless of the secondary account or keys', async () => {
+    const host = transport()
+    host.accounts.vibedev = { primary: true, source: 'plugin' }
+    host.accounts.deepseek = 'signed-out'
+    host.keys.set('EXAMPLE_API_KEY', 'fixture-key')
+    const backend = await connectDesktopWelcome(url, host.send)
+    expect(await backend.read()).toMatchObject({ loggedIn: true, hasApiKey: false })
+    host.accounts.deepseek = 'credential-stored'
+    host.accounts.vibedev.source = 'none'
+    expect(await backend.read()).toMatchObject({ loggedIn: false, hasApiKey: false })
+    host.accounts.deepseek = 'signed-out'
+    expect(await backend.read()).toMatchObject({ loggedIn: false, hasApiKey: false })
+    host.accounts.vibedev.source = 'plugin'
+    expect(await backend.read()).toMatchObject({ loggedIn: true, hasApiKey: false })
+  })
+
+  it('retains the official DeepSeek entry policy when the installed plugin is a secondary account', async () => {
+    const host = transport()
+    host.accounts.vibedev = { primary: false, source: 'plugin' }
+    const backend = await connectDesktopWelcome(url, host.send)
+    expect(await backend.read()).toMatchObject({ loggedIn: false, hasApiKey: false })
+    host.accounts.deepseek = 'credential-stored'
+    expect(await backend.read()).toMatchObject({ loggedIn: true })
+    host.accounts.deepseek = 'signed-out'
+    host.keys.set('EXAMPLE_API_KEY', 'fixture-key')
+    expect(await backend.read()).toMatchObject({ loggedIn: false, hasApiKey: true })
+  })
   it('authenticates through Web and stores only through the configured credential reference', async () => {
     const host = transport()
     const backend = await connectDesktopWelcome(url, host.send)

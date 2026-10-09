@@ -208,6 +208,29 @@ it('composes current files from profile data and retains launch overlay and tele
 })
 
 describe('initProfile', () => {
+  it('does not apply a standalone bundle over the application-owned configured insertion, and preserves user disable', () => {
+    const home = tmp()
+    const name = '@vibedev-si/dsh-vibedev'
+    const installAnchor = stageInstallation({
+      defaults: { patch: `- insert:\n  - id: account\n    name: '${name}'\n    config: { primary: true, gatewayOrigin: 'https://api.vibedev.studio' }\n` },
+      [name]: { patch: `- insert:\n  - id: account\n    name: '${name}'\n` },
+    })
+    const dir = resolveProfileDir('test', home)
+    initProfile(dir, ['defaults', name])
+    expect(loadProfileDirectory('test', dir, installAnchor).skippedBundles).toEqual([])
+    const context = { name: 'test', dir, patchPath: join(dir, PROFILE_PATCH_FILENAME), installAnchor,
+      home, cwd: home, startedBundles: ['defaults', name], overlays: [], telemetryDisabledEnv: undefined,
+      installationPlugins: [name] }
+    const before = readFileSync(join(dir, 'package.json'), 'utf8')
+    const rows = composeEntries([readProfilePatches('test', context)])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.config).toEqual({ primary: true, gatewayOrigin: 'https://api.vibedev.studio' })
+    writeFileSync(context.patchPath, `- id: account\n  name: '${name}'\n  disabled: true\n`)
+    expect(composeEntries([readProfilePatches('test', context)])[0]?.disabled).toBe(true)
+    expect(readFileSync(join(dir, 'package.json'), 'utf8')).toBe(before)
+    expect(composeEntries([readProfilePatches('test', { ...context, installationPlugins: [] })])).toHaveLength(2)
+  })
+
   it('creates manifest, user patch layer, and pnpm workspace once, never overwriting', () => {
     const home = tmp()
     const dir = resolveProfileDir('tui', home)

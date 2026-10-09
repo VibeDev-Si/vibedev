@@ -22,6 +22,7 @@ const state = vi.hoisted(() => ({
   }),
   /** VibeDev: the built-in account plugin's backend, and the account read it answers with. */
   vibedevAccount: undefined as VibeDevAccountBackend | undefined,
+  vibedevListener: undefined as ((value: AccountView) => void) | undefined,
   vibedevState: { status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' } } as AccountView,
   quit: vi.fn(),
   startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/?token=test', injections: [] }),
@@ -318,7 +319,7 @@ it('continues into the workspace only for a VibeDev account re-read as stored', 
   state.vibedevState = { status: 'signed-out', attempt: null, links }
   state.vibedevAccount = {
     state: async () => state.vibedevState,
-    watch: () => () => {},
+    watch: (listener) => { state.vibedevListener = listener; return () => {} },
     start: async () => state.vibedevState,
     cancel: async () => state.vibedevState,
     signOut: async () => state.vibedevState,
@@ -350,6 +351,22 @@ it('continues into the workspace only for a VibeDev account re-read as stored', 
     expect(state.showInactiveWorkspace).toHaveBeenCalledOnce()
     expect(state.showWorkspace).not.toHaveBeenCalled()
     expect(state.closeWelcome).toHaveBeenCalledOnce()
+    // A secondary logout or expiry must not open welcome, even if a stale read says signed out.
+    const welcomeCount = state.beforeWelcome.mock.calls.length
+    const secondary = { status: 'credential-stored', attempt: null, links } as AccountView
+    state.accountState.mockResolvedValue(secondary)
+    state.accountListener!(secondary)
+    state.accountListener!({ ...secondary, status: 'signed-out' })
+    state.expiryListener!()
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(state.beforeWelcome).toHaveBeenCalledTimes(welcomeCount)
+    expect(await state.operations!.takeNotice()).toBeUndefined()
+    // The primary account still owns welcome while the secondary account stays signed in.
+    state.accountState.mockResolvedValue(secondary)
+    state.vibedevListener!(state.vibedevState)
+    state.vibedevState = { ...state.vibedevState, status: 'signed-out' }
+    state.vibedevListener!(state.vibedevState)
+    await vi.waitFor(() => { expect(state.beforeWelcome).toHaveBeenCalledTimes(welcomeCount + 1) })
     // The workspace is already entered: a later request neither replays the entry nor reports an accepted one.
     await expect(state.operations!.continueWithStoredCredential()).resolves.toBe(false)
     expect(state.showInactiveWorkspace).toHaveBeenCalledOnce()
