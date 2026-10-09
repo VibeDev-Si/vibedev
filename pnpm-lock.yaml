@@ -438,8 +438,8 @@ importers:
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
       '@vibedev-si/dsh-vibedev':
-        specifier: 0.2.7
-        version: 0.2.7(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
+        specifier: file:C:/vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz
+        version: file:../../../../../vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
       '@vibedev/dsh-defaults':
         specifier: workspace:*
         version: link:../../packages/vibedev/defaults
@@ -13881,8 +13881,8 @@ importers:
   packages/vibedev/defaults:
     dependencies:
       '@vibedev-si/dsh-vibedev':
-        specifier: 0.2.7
-        version: 0.2.7(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
+        specifier: file:C:/vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz
+        version: file:../../../../../vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -18063,8 +18063,9 @@ packages:
   '@upsetjs/venn.js@2.0.0':
     resolution: {integrity: sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw==}
 
-  '@vibedev-si/dsh-vibedev@0.2.7':
-    resolution: {integrity: sha512-eIqG23l2SbLR/ZpzxN3Q+T2PXDRul6y6sc7NNg0xgzR1Dxq25sBSOGSRB1pYWl6i0HJ1jSviY/TI5BvNwYT8LA==}
+  '@vibedev-si/dsh-vibedev@file:../../../../../vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz':
+    resolution: {integrity: sha512-awbERPolWI+BoO92XFIYKzL9xuHEWHt9Qp16DPXGSAUn+f0P6lVKJpvGbDhHQ9xznp1AWZOUqRrYDziIQf/NIw==, tarball: file:../../../../../vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz}
+    version: 0.2.8-us.1
     engines: {node: '>=20'}
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
@@ -25179,7 +25180,7 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
-  '@vibedev-si/dsh-vibedev@0.2.7(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)':
+  '@vibedev-si/dsh-vibedev@file:../../../../../vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)':
     dependencies:
       '@deepseek-ai/cordis': link:vendor/cordis
       '@deepseek-ai/dsh-attachment': link:packages/attachment/attachment

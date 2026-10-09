@@ -43,6 +43,8 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 
 ## Built-in external plugin
 
+The local US preparation candidate pins `@vibedev-si/dsh-vibedev` 0.2.8-us.1 in both the CLI anchor and defaults bundle. Production explicitly retains `https://vibedev.jzsaas.com` and disables shared development keys; `us-candidate.patch.yml` is packaged/exported as an optional overlay and is not activated by the bundle. The component owns canonical-origin credentials and task namespaces, app-token PKCE login, selected-API search and media control requests, and verbatim signed storage URLs. It does not migrate domestic tasks to the American candidate, rewrite historical URLs or fail over generation across origins. This local candidate pin must be replaced with a verified published exact version before a public release; no gateway cutover is included.
+
 | Package | Role | Wired in |
 |---|---|---|
 | `@vibedev-si/dsh-vibedev` (npm, github.com/VibeDev-Si/dsh-vibedev, MIT; ours) | The VibeDev account plugin, also offered to DeepSeek Harness users: its own sign-in on the gateway (PKCE, app tokens, client `vibedev-plugin`), the gateway models on the `vibedev-gateway` route, web search provider `vibedev-gateway`, media tools and the `vibedevMedia` service. With `primary: true` its client takes the bottom launcher (`settings.launcher`, priority -1) and the first Settings sections ("VibeDev 账号", "VibeDev 媒体生成") | Pinned at an exact version in `@vibedev/dsh-defaults` (row `dsh-vibedev`, `primary: true`) and in `apps/cli` (so the Plugins page and the Host treat it as built in). Bumping it is an app release; it is exempt from pnpm's one-day release age in `pnpm-workspace.yaml` and in the Desktop runtime build project |

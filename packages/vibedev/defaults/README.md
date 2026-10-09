@@ -25,6 +25,8 @@ This bundle applies the product layer over `dsh-base`: VibeDev identity, disable
 
 [cordis.patch.yml](cordis.patch.yml) owns the row configuration. Profile and home patches can override it; the account plugin is an npm dependency pinned to an exact version.
 
+Production explicitly keeps `https://vibedev.jzsaas.com` and disables the shared development-key fallback (`apiKeyEnv: ''`): users sign in, then select a model. [us-candidate.patch.yml](us-candidate.patch.yml) ships as an optional overlay, without being included in the default bundle patch. It selects `https://api.vibedev.studio`; media URLs remain the complete server-returned signed URLs (expected storage host `https://media.vibedev.studio`). The account component isolates credentials and media state by origin and requires a fresh login for the candidate. Preparing or building this overlay does not authorize cutover, removal of the 503 gate or paid tests.
+
 <a id="model-experience"></a>
 ## Model Experience
 

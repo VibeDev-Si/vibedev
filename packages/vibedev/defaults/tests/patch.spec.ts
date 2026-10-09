@@ -80,9 +80,20 @@ describe('VibeDev defaults bundle', () => {
       { id: 'agent-default-model', config: { provider: 'vibedev-gateway', model: 'deepseek-v4-flash' } },
     ])
     expect(inserted(parsed)).toEqual([
-      { id: 'dsh-vibedev', name: '@vibedev-si/dsh-vibedev', config: { primary: true } },
+      { id: 'dsh-vibedev', name: '@vibedev-si/dsh-vibedev', config: { primary: true, gatewayOrigin: 'https://vibedev.jzsaas.com', apiKeyEnv: '' } },
     ])
     expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev-si/dsh-vibedev'])
+  })
+
+  it('ships an explicit American candidate without activating it or exposing a shared key', () => {
+    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    expect(manifest.exports?.['./us-candidate.patch.yml']).toBe('./us-candidate.patch.yml')
+    expect(targeted(loadPatch(resolve(root, 'us-candidate.patch.yml')))).toEqual([
+      { id: 'dsh-vibedev', config: { primary: true, gatewayOrigin: 'https://api.vibedev.studio', apiKeyEnv: '' } },
+    ])
+    const production = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8')
+    expect(production).not.toContain('api.vibedev.studio')
+    expect(production).not.toContain('us-candidate.patch')
   })
 
   it('ships the plugin with the app at the same exact version, so it shows as built in and is never installed twice', () => {
