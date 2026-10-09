@@ -94,7 +94,7 @@
     "@deepseek-ai/dsh-workflow-ptc": "workspace:*",
     "@vibedev/dsh-defaults": "workspace:*",
     "@vibedev/dsh-web-defaults": "workspace:*",
-    "@vibedev-si/dsh-vibedev": "file:C:/vdp-tools/vibedev-app/artifacts/1009a-us-candidate/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.1.tgz",
+    "@vibedev-si/dsh-vibedev": "file:C:/vdp-tools/vibedev-app/artifacts/1009b-us-default/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.2.tgz",
     "@deepseek-ai/schemastery": "workspace:~",
     "commander": "^15.0.0",
     "js-yaml": "^4.2.0",

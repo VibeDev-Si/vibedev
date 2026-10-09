@@ -13,7 +13,6 @@ const require = createRequire(join(defaults, 'package.json'))
 const yaml = require('js-yaml')
 const { boot } = await import(pathToFileURL(join(repo, 'packages/boot/app-boot/lib/index.js')).href)
 const { createUserMessage } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href)
-const domestic = 'https://vibedev.jzsaas.com'
 const american = 'https://api.vibedev.studio'
 const tmp = await mkdtemp(join(tmpdir(), 'vibedev-us-loader-'))
 process.env.DSH_HOME = join(tmp, 'home')
@@ -21,7 +20,7 @@ const stateDir = join(tmp, 'media-state')
 const nativeFetch = globalThis.fetch
 const requests = []
 const contexts = []
-const model = origin => ({ id: origin === domestic ? 'fixture-cn-chat' : 'fixture-us-chat', protocol: 'openai', capabilities: { input_modalities: ['text'], allowed_endpoints: ['/v1/chat/completions'] } })
+const model = () => ({ id: 'fixture-us-chat', protocol: 'openai', capabilities: { input_modalities: ['text'], allowed_endpoints: ['/v1/chat/completions'] } })
 const answer = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const waitFor = async test => {
   for (let attempt = 0; attempt < 80; attempt++) { if (await test()) return; await new Promise(resolve => setTimeout(resolve, 25)) }
@@ -33,7 +32,7 @@ let streamAborted = false
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(input instanceof Request ? input.url : String(input))
   if (url.hostname === '127.0.0.1') return nativeFetch(input, init)
-  assert.ok([domestic, american].includes(url.origin), 'Mock rejects unexpected outbound origins')
+  assert.equal(url.origin, american, 'No request may use a historical or alternate gateway')
   const headers = new Headers(init.headers)
   const auth = headers.get('authorization')
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
@@ -84,9 +83,9 @@ try {
   await writeFile(join(tmp, 'other-accounts.json'), '{"deepseek":"fixture-preserved"}')
   await writeFile(join(tmp, 'local-chat.json'), '{"conversation":"fixture-preserved"}')
   const production = yaml.load(await readFile(join(defaults, 'cordis.patch.yml'), 'utf8'))
-  const candidate = yaml.load(await readFile(join(defaults, 'us-candidate.patch.yml'), 'utf8'))
   const productionRow = production.flatMap(entry => entry.insert ?? []).find(entry => entry.id === 'dsh-vibedev')
-  assert.equal(productionRow.config.gatewayOrigin, domestic)
+  assert.equal(productionRow.config.gatewayOrigin, american)
+  assert.equal(productionRow.config.apiKeyEnv, '')
   const start = async (label, selected) => {
     const config = join(tmp, `${label}.cordis.yml`)
     const rows = [
@@ -106,17 +105,15 @@ try {
     assert.notEqual(result.isError, true)
     return result.content.filter(part => part.type === 'text').map(part => part.text).join('\n')
   }
-  const cn = await start('domestic', productionRow.config)
-  assert.match(await status(cn, 'status'), /this plugin's VibeDev sign-in/)
-  await waitFor(async () => (await cn.llm.listModels('vibedev-gateway')).some(model => model.id === 'fixture-cn-chat'))
-  await cn.fiber.dispose()
+  const oldTasks = []
   for (const kind of ['video', 'audio']) await writeFile(join(stateDir, `tasks/pending-${kind}.json`), JSON.stringify({
     id: `pending-${kind}`, kind, model: 'fixture', label: 'old pending task', createdAt: Date.now(), updatedAt: Date.now(),
     status: kind === 'video' ? 'pending' : 'submitting', gatewayId: kind === 'video' ? 'old-remote' : undefined,
     endpoint: kind === 'video' ? '/v1/videos' : '/v1/audio/generations', body: { reference: 'https://legacy.example/old.mp4?sig=keep' },
     outputDir: join(tmp, 'outputs'), stem: 'old',
   }))
-  const us = await start('american', candidate[0].config)
+  for (const kind of ['video', 'audio']) oldTasks.push(await readFile(join(stateDir, `tasks/pending-${kind}.json`), 'utf8'))
+  const us = await start('american', productionRow.config)
   assert.match(await status(us, 'status'), /Nobody is signed in/)
   assert.deepEqual(await us.llm.listModels('vibedev-gateway'), [])
   assert.equal(requests.filter(request => request.origin === american).length, 0)
@@ -148,6 +145,7 @@ try {
   await waitFor(async () => (await us.llm.listModels('vibedev-gateway')).length === 0)
   assert.equal(await readFile(join(stateDir, 'session.json'), 'utf8'), legacyGrant)
   assert.equal(await readFile(join(stateDir, 'tasks/old-video.json'), 'utf8'), history)
+  for (const [index, kind] of ['video', 'audio'].entries()) assert.equal(await readFile(join(stateDir, `tasks/pending-${kind}.json`), 'utf8'), oldTasks[index])
   assert.equal(await readFile(join(tmp, 'other-accounts.json'), 'utf8'), '{"deepseek":"fixture-preserved"}')
   assert.equal(await readFile(join(tmp, 'local-chat.json'), 'utf8'), '{"conversation":"fixture-preserved"}')
   await us.fiber.dispose()

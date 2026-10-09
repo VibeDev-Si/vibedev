@@ -25,7 +25,7 @@ kind: "package-bundle"
 
 行配置以 [cordis.patch.yml](cordis.patch.yml) 为准，可被 profile 和 home 层覆盖；账号插件使用 npm 精确版本依赖。
 
-正式配置明确保留 `https://vibedev.jzsaas.com`，并禁用共享开发密钥回退（`apiKeyEnv: ''`），用户登录后再选模型。[us-candidate.patch.yml](us-candidate.patch.yml) 随包提供，但不进入默认 bundle patch；它显式选择 `https://api.vibedev.studio`。媒体链接始终使用服务器返回的完整签名 URL，预期存储域为 `https://media.vibedev.studio`。账号组件按 origin 隔离凭据与媒体状态，候选站需要重新登录。准备和构建该 overlay 不等于授权切流、解除503挡板或付费测试。
+正式配置使用 `https://api.vibedev.studio`，禁用开发密钥回退（`apiKeyEnv: ''`），用户登录后再选模型。媒体链接始终使用服务器返回的完整签名 URL，预期存储域为 `https://media.vibedev.studio`。每个 origin 都有独立凭据和媒体状态；历史未标注的登录和任务记录保留但不恢复，升级后需重新登录。候选 overlay 不再随包提供。本地验证不解除服务器503挡板，不发出真实模型或付费媒体请求；见[升级指南](../../../docs/upgrade-guide/v0.2.1-alpha.1/vibedev-gateway/guide.zh.md)。
 
 <a id="model-experience"></a>
 ## 模型体验

@@ -65,5 +65,5 @@
       name: '@vibedev-si/dsh-vibedev'
       config:
         primary: true
-        gatewayOrigin: https://vibedev.jzsaas.com
+        gatewayOrigin: https://api.vibedev.studio
         apiKeyEnv: ''

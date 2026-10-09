@@ -21,7 +21,7 @@ describe('APP_IDENTITY', () => {
     expect(APP_IDENTITY).toEqual({
       product: 'vibedev-app',
       version: manifest.version,
-      url: 'https://vibedev.jzsaas.com',
+      url: 'https://api.vibedev.studio',
     })
   })
 })
@@ -29,7 +29,7 @@ describe('APP_IDENTITY', () => {
 describe('userAgent', () => {
   it('renders product/version with the +url comment', () => {
     expect(userAgent()).toBe(
-      `vibedev-app/${manifest.version} (+https://vibedev.jzsaas.com)`,
+      `vibedev-app/${manifest.version} (+https://api.vibedev.studio)`,
     )
   })
 

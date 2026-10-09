@@ -1,9 +1,0 @@
-# Explicit test-only overlay. It is shipped but is NOT included in dsh.bundle.patch.
-# Keep the production default domestic until the gateway passes acceptance and cutover is approved.
-# Media URLs come verbatim from the API (expected storage: https://media.vibedev.studio).
-# No media host substitution, no shared key, no cross-region request fallback.
-- id: dsh-vibedev
-  config:
-    primary: true
-    gatewayOrigin: https://api.vibedev.studio
-    apiKeyEnv: ''

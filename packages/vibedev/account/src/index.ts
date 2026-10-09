@@ -70,7 +70,7 @@ export interface Config {
 
 /** Validated deployment choices. */
 export const Config = Schema.object({
-  gatewayOrigin: Schema.string().default('https://vibedev.jzsaas.com'),
+  gatewayOrigin: Schema.string().default('https://api.vibedev.studio'),
   desktopPlatform: Schema.union([Schema.const('darwin'), Schema.const('win32'), Schema.const(null)]).default(null),
   allowLoopbackHttp: Schema.boolean().default(false),
   requestTimeoutMs: Schema.number().min(1).max(120_000).default(30_000),

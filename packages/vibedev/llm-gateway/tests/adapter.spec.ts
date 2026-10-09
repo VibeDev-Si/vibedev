@@ -115,7 +115,7 @@ describe('GatewayAdapter', () => {
   it('turns a 402 into the account quota failure', async () => {
     const { ctx } = await bench([{
       status: 402,
-      body: '{"error":{"type":"insufficient_quota","code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance","recharge_url":"https://vibedev.jzsaas.com/purchase"}}',
+      body: '{"error":{"type":"insufficient_quota","code":"INSUFFICIENT_BALANCE","message":"Insufficient account balance","recharge_url":"https://api.vibedev.studio/purchase"}}',
     }])
     const { finish } = await run(ctx, { model: 'deepseek-v4-flash' })
     expect(finish).toMatchObject({ kind: 'error', failure: { code: ACCOUNT_QUOTA_EXCEEDED_CODE, status: 402, requestId: 'req-1' } })

@@ -1,6 +1,6 @@
 /** The VibeDev defaults bundle stops DeepSeek data uploads and replaces the harness identity line. */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -80,19 +80,18 @@ describe('VibeDev defaults bundle', () => {
       { id: 'agent-default-model', config: { provider: 'vibedev-gateway', model: 'deepseek-v4-flash' } },
     ])
     expect(inserted(parsed)).toEqual([
-      { id: 'dsh-vibedev', name: '@vibedev-si/dsh-vibedev', config: { primary: true, gatewayOrigin: 'https://vibedev.jzsaas.com', apiKeyEnv: '' } },
+      { id: 'dsh-vibedev', name: '@vibedev-si/dsh-vibedev', config: { primary: true, gatewayOrigin: 'https://api.vibedev.studio', apiKeyEnv: '' } },
     ])
     expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev-si/dsh-vibedev'])
   })
 
-  it('ships an explicit American candidate without activating it or exposing a shared key', () => {
+  it('activates America directly without an obsolete candidate overlay or a shared key', () => {
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
-    expect(manifest.exports?.['./us-candidate.patch.yml']).toBe('./us-candidate.patch.yml')
-    expect(targeted(loadPatch(resolve(root, 'us-candidate.patch.yml')))).toEqual([
-      { id: 'dsh-vibedev', config: { primary: true, gatewayOrigin: 'https://api.vibedev.studio', apiKeyEnv: '' } },
-    ])
+    expect(manifest.exports?.['./us-candidate.patch.yml']).toBeUndefined()
+    expect(existsSync(resolve(root, 'us-candidate.patch.yml'))).toBe(false)
     const production = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8')
-    expect(production).not.toContain('api.vibedev.studio')
+    expect(production).toContain('gatewayOrigin: https://api.vibedev.studio')
+    expect(production).toContain("apiKeyEnv: ''")
     expect(production).not.toContain('us-candidate.patch')
   })
 

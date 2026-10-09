@@ -45,7 +45,7 @@ export interface Config {
 }
 
 export const Config = Schema.object({
-  gatewayOrigin: Schema.string().default('https://vibedev.jzsaas.com'),
+  gatewayOrigin: Schema.string().default('https://api.vibedev.studio'),
   apiKeyEnv: Schema.string().default('VIBEDEV_GATEWAY_API_KEY'),
   requestTimeoutMs: Schema.number().min(1000).max(120_000).default(20_000),
   maxRetries: Schema.number().min(0).max(5).step(1).default(2),

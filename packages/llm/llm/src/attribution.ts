@@ -41,7 +41,7 @@ export const APP_IDENTITY: AppIdentity = {
   // VibeDev fork: requests identify VibeDev, not DeepSeek Harness.
   product: 'vibedev-app',
   version,
-  url: 'https://vibedev.jzsaas.com',
+  url: 'https://api.vibedev.studio',
 }
 
 /**

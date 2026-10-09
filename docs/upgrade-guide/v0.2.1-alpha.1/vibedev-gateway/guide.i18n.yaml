@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.1-alpha.1/vibedev-gateway/guide.md
+/:
+  en: f5221f032bde3145
+  zh: 8df99b86b103872c
+/vibedev-gateway-and-account-state:
+  en: c49c865d7ec6fd88
+  zh: c02a265943c24c77
+/vibedev-gateway-and-account-state/change:
+  en: ef7752aeff4d6d3c
+  zh: 49005bee1ed1096a
+/vibedev-gateway-and-account-state/migration:
+  en: 61daaa268583a1f1
+  zh: d57aec5641f1a1a6
