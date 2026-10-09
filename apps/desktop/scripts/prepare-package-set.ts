@@ -28,6 +28,7 @@ import { tarballFiles } from '../../../scripts/release/tarball.ts'
 import { resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
 
 const DSH_PACKAGE = '@deepseek-ai/dsh'
+const ACCOUNT_PACKAGE = '@vibedev-si/dsh-vibedev'
 const ROOT_PACKAGES = [DSH_PACKAGE, DESKTOP_HOST_PACKAGE] as const
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -62,6 +63,8 @@ export function selectDesktopPackageClosure(
   const workspace = yaml.load(readFileSync(join(REPOSITORY_ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }
   const workspaceNames = new Set(globSync(workspace.packages.map(pattern => `${pattern}/package.json`), { cwd: REPOSITORY_ROOT })
     .map(path => (JSON.parse(readFileSync(join(REPOSITORY_ROOT, path), 'utf8')) as { name: string }).name))
+  // The built-in account is independently versioned, but must ship from a verified local archive too.
+  workspaceNames.add(ACCOUNT_PACKAGE)
   const selected = new Map<string, PackedDesktopPackage>()
   const visit = (name: string): void => {
     if (selected.has(name)) return
@@ -112,6 +115,41 @@ function packedPackages(inputs: readonly string[]): Map<string, PackedDesktopPac
   return available
 }
 
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+}
+
+/**
+ * Verify the checked-in account archive against the immutable source pin and lockfile before adding it to the local runtime.
+ * @param available - Prepared archives indexed by package name.
+ * @param specifier - The exact account dependency declared by the CLI anchor.
+ * @param lockfile - Repository lockfile text containing its SHA-512 integrity.
+ */
+export function assertPinnedDesktopAccountPackage(
+  available: ReadonlyMap<string, PackedDesktopPackage>,
+  specifier: string,
+  lockfile: string,
+): void {
+  const fixedArchive = new RegExp([
+    '^https://raw\\.githubusercontent\\.com/VibeDev-Si/dsh-vibedev/[0-9a-f]{40}/bundled/',
+    'vibedev-si-dsh-vibedev-[0-9A-Za-z.-]+\\.tgz$',
+  ].join(''))
+  if (!fixedArchive.test(specifier)) throw new Error('desktop package set: account source pin must be immutable')
+  const packed = available.get(ACCOUNT_PACKAGE)
+  if (packed === undefined) throw new Error('desktop package set: missing built-in account archive')
+  const entry = record(record(record(yaml.load(lockfile))?.packages)?.[`${ACCOUNT_PACKAGE}@${specifier}`])
+  const resolution = record(entry?.resolution)
+  if (entry === undefined || resolution?.tarball !== specifier || typeof entry.version !== 'string') {
+    throw new Error('desktop package set: account lockfile pin is missing or mismatched')
+  }
+  if (packed.manifest.name !== ACCOUNT_PACKAGE || packed.manifest.version !== entry.version
+    || !specifier.endsWith(`/vibedev-si-dsh-vibedev-${entry.version}.tgz`)) {
+    throw new Error('desktop package set: account archive identity does not match its pin')
+  }
+  const integrity = `sha512-${createHash('sha512').update(readFileSync(packed.tarball)).digest('base64')}`
+  if (resolution.integrity !== integrity) throw new Error('desktop package set: account archive integrity mismatch')
+}
+
 /**
  * Require every private Host file used before the Desktop profile can pass its health check.
  * @param files - Tarball paths rooted at `package/`.
@@ -127,9 +165,20 @@ export function assertDesktopHostPackageFiles(files: readonly string[]): void {
   }
 }
 
-/** Prepare a package set from release tarball directories. */
-export function prepareDesktopPackageSet(inputs: readonly string[], output: string): void {
-  const selected = selectDesktopPackageClosure(packedPackages(inputs))
+/**
+ * Prepare a package set from release tarball directories.
+ * @param inputs - Build-owned directories of prepared package archives.
+ * @param output - Build-owned package-set destination.
+ * @param accountPin - Optional immutable account source and lockfile used by production Desktop packaging.
+ */
+export function prepareDesktopPackageSet(
+  inputs: readonly string[],
+  output: string,
+  accountPin?: { readonly specifier: string; readonly lockfile: string },
+): void {
+  const available = packedPackages(inputs)
+  if (accountPin !== undefined) assertPinnedDesktopAccountPackage(available, accountPin.specifier, accountPin.lockfile)
+  const selected = selectDesktopPackageClosure(available)
   const host = selected.find(packed => packed.manifest.name === DESKTOP_HOST_PACKAGE)
   if (host === undefined) throw new Error(`desktop package set: selected closure omits ${DESKTOP_HOST_PACKAGE}`)
   assertDesktopHostPackageFiles(tarballFiles(host.tarball))
@@ -164,6 +213,7 @@ function main(): void {
     buildPaths.packedDsh,
     buildPaths.packedVendor,
     buildPaths.packedLandlock,
+    join(APP_ROOT, 'resources', 'bundled-account'),
   ]
   const { values } = parseArgs({
     options: { from: { type: 'string', multiple: true }, out: { type: 'string' } },
@@ -171,7 +221,12 @@ function main(): void {
   })
   const inputs = (values.from ?? defaultInputs).map(path => resolve(REPOSITORY_ROOT, path))
   const output = values.out === undefined ? buildPaths.packageSet : resolve(REPOSITORY_ROOT, values.out)
-  prepareDesktopPackageSet(inputs, output)
+  const cli = record(JSON.parse(readFileSync(join(REPOSITORY_ROOT, 'apps/cli/package.json'), 'utf8')))
+  const specifier = record(cli?.dependencies)?.[ACCOUNT_PACKAGE]
+  if (typeof specifier !== 'string') throw new Error('desktop package set: CLI omits the built-in account pin')
+  prepareDesktopPackageSet(inputs, output, {
+    specifier, lockfile: readFileSync(join(REPOSITORY_ROOT, 'pnpm-lock.yaml'), 'utf8'),
+  })
   console.log(`desktop package set: prepared ${output}`)
 }
 

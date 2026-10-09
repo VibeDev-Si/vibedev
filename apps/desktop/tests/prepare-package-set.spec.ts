@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import {
   assertDesktopHostPackageFiles,
+  assertPinnedDesktopAccountPackage,
   selectDesktopPackageClosure,
   type PackedDesktopPackage,
 } from '../scripts/prepare-package-set.ts'
@@ -90,5 +95,41 @@ describe('desktop package-set selection', () => {
       assertDesktopHostPackageFiles(files.slice(1))
     }).toThrow(/lib\/index\.js/u)
     expect(() => { assertDesktopHostPackageFiles(files.slice(0, 1)) }).toThrow(/lib\/cli\.js/u)
+  })
+
+  it('requires the built-in account archive in the local production closure', () => {
+    const available = new Map([
+      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh', { dependencies: { '@vibedev-si/dsh-vibedev': 'https://fixture.example/plugin.tgz' } })],
+      ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+    ])
+    expect(() => selectDesktopPackageClosure(available)).toThrow(/unpacked package/u)
+    available.set('@vibedev-si/dsh-vibedev', packed('@vibedev-si/dsh-vibedev'))
+    expect(selectDesktopPackageClosure(available).some(entry => entry.manifest.name === '@vibedev-si/dsh-vibedev')).toBe(true)
+  })
+})
+
+describe('locked built-in account archive', () => {
+  it('verifies the immutable pin, identity, version and complete archive bytes before packaging', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'desktop-account-archive-'))
+    try {
+      const name = '@vibedev-si/dsh-vibedev'
+      const version = '0.2.8-us.3'
+      const spec = `https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/${'a'.repeat(40)}/bundled/vibedev-si-dsh-vibedev-${version}.tgz`
+      const tarball = join(dir, 'plugin.tgz')
+      const bytes = Buffer.from('fixture archive bytes')
+      writeFileSync(tarball, bytes)
+      const available = new Map([[name, { tarball, manifest: { name, version } }]])
+      const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`
+      const lock = JSON.stringify({ packages: { [`${name}@${spec}`]: { version, resolution: { tarball: spec, integrity } } } })
+      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).not.toThrow()
+      expect(() => assertPinnedDesktopAccountPackage(new Map(), spec, lock)).toThrow(/missing/u)
+      expect(() => assertPinnedDesktopAccountPackage(available, spec.replace('a'.repeat(40), 'main'), lock)).toThrow(/immutable/u)
+      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock.replace(version, '0.2.0'))).toThrow(/lockfile/u)
+      available.get(name)!.manifest.version = '0.2.0'
+      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).toThrow(/identity/u)
+      available.get(name)!.manifest.version = version
+      writeFileSync(tarball, 'tampered fixture archive')
+      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).toThrow(/integrity/u)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })
