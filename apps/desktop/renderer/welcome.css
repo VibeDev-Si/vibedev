@@ -341,3 +341,7 @@ body {
 .actions .welcome-loading { color: inherit; }
 
 .auth-waiting .copy-link:disabled { cursor: default; }
+
+#auth-diagnostic { margin-top: 16px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+#auth-diagnostic summary { cursor: pointer; }
+#auth-diagnostic p { overflow-wrap: anywhere; line-height: 18px; max-height: 108px; overflow-y: auto; }

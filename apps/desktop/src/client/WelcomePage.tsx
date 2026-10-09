@@ -5,6 +5,7 @@ import { Toast } from '@deepseek-ai/dsh-client-ui-primitives/src/Toast.tsx'
 import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives/src/StateDot.tsx'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { WelcomeApi } from '../welcome-api.ts'
+import { safeVibeDevDiagnostic, vibeDevDiagnosticText, type DesktopSignInAttempt } from '../vibedev-sign-in-diagnostics.ts'
 
 type Page = 'entry' | 'key' | 'account'
 
@@ -20,9 +21,10 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const [page, setPage] = useState<Page>('entry')
   const pageRef = useRef<Page>('entry')
   const visiblePage = useRef<Page>('entry')
-  const [attempt, setAttempt] = useState<AccountView['attempt']>(null)
-  const attemptRef = useRef<AccountView['attempt']>(null)
+  const [attempt, setAttempt] = useState<DesktopSignInAttempt | null>(null)
+  const attemptRef = useRef<DesktopSignInAttempt | null>(null)
   const [starting, setStarting] = useState(false)
+  const startingRef = useRef(false)
   const [cancelling, setCancelling] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState<{ status: 'idle' | 'busy' | 'copied' | 'failed' }>({ status: 'idle' })
   const copyState = copyFeedback.status
@@ -46,6 +48,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     attemptRef.current = state.attempt
     setAttempt(state.attempt)
     setStarting(false)
+    startingRef.current = false
     setCopyFeedback({ status: 'idle' })
     navigate(state.attempt === null || state.attempt.phase === 'cancelled' ? 'entry' : 'account')
   }
@@ -77,6 +80,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     }
     takeNotice()
     const stop = api.onAccountState((state) => {
+      // A poll begun before start() must not invalidate the new request's result.
+      if (startingRef.current && state.status === 'signed-out' && state.attempt === null) return
       revision.current++
       takeNotice()
       if (pageRef.current === 'entry' && state.status === 'credential-stored' && state.attempt === null) {
@@ -146,6 +151,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   async function start() {
     navigate('account')
     setStarting(true)
+    startingRef.current = true
     setAttempt(null)
     attemptRef.current = null
     const current = ++revision.current
@@ -153,7 +159,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       const state = await api.startSignIn()
       if (mounted.current && revision.current === current) showAccount(state)
     } catch {
-      if (mounted.current && revision.current === current) setStarting(false)
+      if (mounted.current && revision.current === current) { startingRef.current = false; setStarting(false) }
     }
   }
   async function cancel() {
@@ -186,7 +192,16 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const failed = phase === 'expired' || phase === 'failed'
   const title = phase === 'initializing' ? m.welcomeAuthStarting
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
-      : phase === 'failed' ? m.welcomeAuthFailed : m.welcomeAuthExchanging
+      : phase === 'failed' ? m.welcomeAuthFailed : phase === 'committing' ? m.welcomeAuthSaving : m.welcomeAuthExchanging
+  const diagnostic = safeVibeDevDiagnostic(attempt?.vibedevDiagnostic)
+  const failure = diagnostic.errorCode === 'network' ? m.welcomeAuthNetwork
+    : diagnostic.errorCode === 'timeout' ? m.welcomeAuthTimeout
+      : diagnostic.errorCode === 'gateway-refused' ? m.welcomeAuthRefused
+        : diagnostic.errorCode === 'gateway-unavailable' ? m.welcomeAuthUnavailable
+          : diagnostic.errorCode === 'protocol' ? m.welcomeAuthProtocol
+            : diagnostic.errorCode === 'storage' ? m.welcomeAuthStorage
+              : diagnostic.errorCode === 'callback' ? m.welcomeAuthCallback : undefined
+  const supportDetails = failed ? vibeDevDiagnosticText(attempt) : undefined
   const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : 'auth-status'
 
   return <>
@@ -211,7 +226,10 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : phase === 'expired' ? 'auth-expired' : ''}`}
         hidden={page !== 'account'} aria-live="polite">
         <h1 id="auth-status">{title}</h1>
-        <p id="auth-description" hidden={!waiting && phase !== 'expired'}>{waiting ? m.welcomeAuthWaitingDescription : m.welcomeAuthExpiredDescription}</p>
+        <p id="auth-description" hidden={!waiting && phase !== 'expired' && failure === undefined}>
+          {waiting ? m.welcomeAuthWaitingDescription : failed && failure !== undefined ? failure : m.welcomeAuthExpiredDescription}
+        </p>
+        {supportDetails !== undefined && <details id="auth-diagnostic"><summary>{m.welcomeAuthDiagnostic}</summary><p>{supportDetails}</p></details>}
         <button id="auth-copy" className="copy-link" type="button" hidden={!waiting} disabled={!waiting || (copyState === 'busy' || copyState === 'copied')} onClick={() => { void copyLink() }}>
           {copyState === 'copied' ? m.welcomeAuthCopied : copyState === 'failed' ? m.welcomeAuthCopyFailed : m.welcomeAuthCopyLink}
         </button>

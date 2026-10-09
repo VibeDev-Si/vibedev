@@ -21,7 +21,7 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@vibedev-si/dsh-vibedev": "file:C:/vdp-tools/vibedev-app/artifacts/1009b-us-default/plugin-ready/vibedev-si-dsh-vibedev-0.2.8-us.2.tgz"
+    "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/3b88efdb607e294121456d26de8d1c7156e535d4/bundled/vibedev-si-dsh-vibedev-0.2.8-us.3.tgz"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"

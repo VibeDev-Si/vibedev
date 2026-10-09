@@ -17,6 +17,7 @@ const { boot, createRuntimeResolution, loadProfileDirectory, PluginPackages, rea
 const { createUserMessage } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-llm')).href)
 const american = 'https://api.vibedev.studio'
 const tmp = await mkdtemp(join(tmpdir(), 'vibedev-us-loader-'))
+const previousHome = process.env.DSH_HOME
 process.env.DSH_HOME = join(tmp, 'home')
 const stateDir = join(tmp, 'media-state')
 const nativeFetch = globalThis.fetch
@@ -30,6 +31,7 @@ const waitFor = async test => {
 }
 let authorize
 let streamAborted = false
+let refuseRedeem = false
 
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(input instanceof Request ? input.url : String(input))
@@ -47,6 +49,7 @@ globalThis.fetch = async (input, init = {}) => {
     assert.equal(body.client, 'vibedev-plugin')
     assert.equal(createHash('sha256').update(body.code_verifier).digest('base64url'), authorize.searchParams.get('code_challenge'))
     assert.equal(body.hmac_secret, undefined)
+    if (refuseRedeem) return new Response(JSON.stringify({ message: 'fixture-private-gateway-detail' }), { status: 503 })
     return answer({ access_token: 'fixture-us-app', refresh_token: 'fixture-us-refresh', expires_in: 3600, refresh_expires_in: 86400 })
   }
   if (url.pathname === '/api/v1/vibedev/app-token/revoke') return answer({ ok: true })
@@ -122,7 +125,7 @@ try {
     const account = ctx.loader.resolve('include:dsh-vibedev')
     assert.equal(account.options.config.primary, true)
     assert.equal(account.options.config.gatewayOrigin, american)
-    assert.equal(ctx.pluginPackages.packageOf('@vibedev-si/dsh-vibedev', pathToFileURL(config).href).version, '0.2.8-us.2')
+    assert.equal(ctx.pluginPackages.packageOf('@vibedev-si/dsh-vibedev', pathToFileURL(config).href).version, '0.2.8-us.3')
     assert.equal(JSON.parse(await readFile(join(oldPlugin, 'package.json'), 'utf8')).version, '0.2.6')
     contexts.push(ctx)
     return ctx
@@ -170,6 +173,26 @@ try {
   assert.equal(streamAborted, true)
   await status(us, 'sign_out')
   await waitFor(async () => (await us.llm.listModels('vibedev-gateway')).length === 0)
+  // Exercise classified failures in the installed component, not only its source tests.
+  refuseRedeem = true
+  const failedSignIn = await status(us, 'sign_in')
+  const failedLink = failedSignIn.match(/https:\/\/api\.vibedev\.studio\/vibedev-link\?\S+/)
+  assert.ok(failedLink)
+  authorize = new URL(failedLink[0])
+  const failedCallback = new URL(authorize.searchParams.get('callback'))
+  failedCallback.search = new URLSearchParams({ state: authorize.searchParams.get('state'), code: 'fixture-failed-code' }).toString()
+  const redeemsBefore = requests.filter(request => request.path.endsWith('/redeem')).length
+  const failedResponse = await nativeFetch(failedCallback)
+  assert.equal(failedResponse.status, 502)
+  const failedPage = await failedResponse.text()
+  assert.match(failedPage, /gateway-unavailable/)
+  assert.match(failedPage, /stage=redeem/)
+  assert.match(failedPage, /HTTP 503/)
+  for (const secret of ['fixture-private-gateway-detail', 'fixture-failed-code', 'fixture-us-app', authorize.searchParams.get('state')]) {
+    assert.equal(failedPage.includes(secret), false)
+  }
+  assert.equal(requests.filter(request => request.path.endsWith('/redeem')).length, redeemsBefore + 1, 'No authorization-code retry')
+  assert.deepEqual(await us.llm.listModels('vibedev-gateway'), [])
   assert.equal(await readFile(join(stateDir, 'session.json'), 'utf8'), legacyGrant)
   assert.equal(await readFile(join(stateDir, 'tasks/old-video.json'), 'utf8'), history)
   for (const [index, kind] of ['video', 'audio'].entries()) assert.equal(await readFile(join(stateDir, `tasks/pending-${kind}.json`), 'utf8'), oldTasks[index])
@@ -177,9 +200,11 @@ try {
   assert.equal(await readFile(join(tmp, 'local-chat.json'), 'utf8'), '{"conversation":"fixture-preserved"}')
   await us.fiber.dispose()
   assert.equal(us.get('vibedevMedia'), undefined)
-  console.log(JSON.stringify({ ok: true, installedPlugin: require('@vibedev-si/dsh-vibedev/package.json').version, loader: true, upgradedProfileUsesBuiltInPrimary: true, originIsolation: true, pkceStateLoopbackAppToken: true, hiddenBeforeLogin: true, searchOnSelectedAPI: true, sseHeartbeatAndCancel: true, preservedLegacyAndOtherData: true, disposed: true }))
+  console.log(JSON.stringify({ ok: true, installedPlugin: require('@vibedev-si/dsh-vibedev/package.json').version, loader: true, upgradedProfileUsesBuiltInPrimary: true, originIsolation: true, pkceStateLoopbackAppToken: true, hiddenBeforeLogin: true, searchOnSelectedAPI: true, sseHeartbeatAndCancel: true, classifiedSignInFailure: true, callbackRedaction: true, noRedeemRetry: true, preservedLegacyAndOtherData: true, disposed: true }))
 } finally {
   for (const ctx of contexts) await ctx.fiber.dispose()
   globalThis.fetch = nativeFetch
+  if (previousHome === undefined) delete process.env.DSH_HOME
+  else process.env.DSH_HOME = previousHome
   await rm(tmp, { recursive: true, force: true })
 }

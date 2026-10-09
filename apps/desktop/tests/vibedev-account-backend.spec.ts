@@ -36,6 +36,85 @@ function host(initial: Record<string, unknown>) {
 }
 
 describe('connectVibeDevAccount', () => {
+  it('returns to the login entry when credentials expire after a retained successful attempt', async () => {
+    const succeeded = { id: 'login-success', phase: 'succeeded', expiresAt: 9000, gatewayOrigin: 'https://api.vibedev.studio' }
+    const h = host({ source: 'plugin', primary: true, attempt: succeeded })
+    const account = (await connectVibeDevAccount(ORIGIN, h.send))!
+    expect((await account.state()).attempt?.phase).toBe('succeeded')
+    // A refresh rejection removes the credential, while Host retains the old attempt for diagnostics.
+    h.state.view = { ...h.state.view, source: 'none' }
+    expect(await account.state()).toMatchObject({ status: 'signed-out', attempt: null })
+  })
+
+  it('returns the authoritative failure immediately when sign-in could not start', async () => {
+    const h = host({ source: 'none', primary: true })
+    const send = async (input: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && input.endsWith('/sign-in')) {
+        h.state.view = { source: 'none', primary: true, links: LINKS, attempt: {
+          id: 'login-listener', phase: 'failed', expiresAt: 9000, gatewayOrigin: 'https://api.vibedev.studio',
+          stage: 'listen', errorCode: 'callback',
+        } }
+        return Response.json({ error: { code: 'SIGN_IN_REFUSED' } }, { status: 500 })
+      }
+      return h.send(input, init)
+    }
+    const account = (await connectVibeDevAccount(ORIGIN, send))!
+    await expect(account.start()).resolves.toMatchObject({ attempt: {
+      id: 'login-listener', phase: 'failed', vibedevDiagnostic: { stage: 'listen', errorCode: 'callback' },
+    } })
+  })
+
+  it('retains the plugin phase and safe failure details instead of guessing from pending', () => {
+    const attempt = {
+      id: 'login-123', phase: 'failed', expiresAt: 9000, gatewayOrigin: 'https://api.vibedev.studio',
+      stage: 'redeem', errorCode: 'gateway-unavailable', httpStatus: 503,
+      message: 'private-token', code: 'private-code', code_verifier: 'private-verifier',
+    }
+    const state = accountViewOf(pluginAccountView({ source: 'none', links: LINKS, attempt }))
+    expect(state.attempt).toMatchObject({ id: 'login-123', phase: 'failed', errorCode: 'network' })
+    expect(state.attempt).toHaveProperty('vibedevDiagnostic', {
+      gatewayOrigin: 'https://api.vibedev.studio', stage: 'redeem', errorCode: 'gateway-unavailable', httpStatus: 503,
+    })
+    expect(JSON.stringify(state)).not.toContain('private-')
+  })
+
+  it.each(['exchanging', 'committing', 'succeeded', 'cancelled', 'expired'])('retains %s from the plugin', (phase) => {
+    const state = accountViewOf(pluginAccountView({
+      source: phase === 'succeeded' ? 'plugin' : 'none', links: LINKS,
+      attempt: { id: 'login-123', phase, expiresAt: 9000, gatewayOrigin: 'https://api.vibedev.studio' },
+    }))
+    expect(state.attempt?.phase).toBe(phase)
+  })
+
+  it('drops unknown diagnostic fields and network codes at the desktop boundary', () => {
+    const state = accountViewOf(pluginAccountView({ source: 'none', links: LINKS, attempt: {
+      id: 'login-123', phase: 'failed', expiresAt: 9000, gatewayOrigin: 'https://secret:password@api.vibedev.studio/path?token=hidden',
+      stage: 'redeem', errorCode: 'network', networkCode: 'secret-token', httpStatus: 999, message: 'secret-message',
+    } }))
+    expect(JSON.stringify(state)).not.toMatch(/secret|password|hidden|999/)
+    expect(state.attempt?.phase).toBe('failed')
+  })
+
+  it('keeps a fast terminal plugin failure across polls and lets a new attempt replace it', async () => {
+    const h = host({ source: 'none', primary: true })
+    const account = (await connectVibeDevAccount(ORIGIN, h.send, { pendingMs: 5, idleMs: 5 }))!
+    const seen: AccountView[] = []
+    const stop = account.watch((state) => { seen.push(state) }, () => {})
+    try {
+      h.state.view = { source: 'none', primary: true, links: LINKS, attempt: {
+        id: 'login-first', phase: 'failed', expiresAt: 9000, gatewayOrigin: 'https://api.vibedev.studio',
+        stage: 'redeem', errorCode: 'network', networkCode: 'ECONNRESET',
+      } }
+      await vi.waitFor(() => { expect(seen.at(-1)?.attempt).toMatchObject({ id: 'login-first', phase: 'failed' }) })
+      expect((await account.state()).attempt?.phase).toBe('failed')
+      h.state.view = { source: 'none', primary: true, links: LINKS,
+        pending: { url: 'https://api.vibedev.studio/vibedev-link?state=new', expiresAt: 10000 },
+        attempt: { id: 'login-next', phase: 'waiting-browser', expiresAt: 10000, gatewayOrigin: 'https://api.vibedev.studio' },
+      }
+      await vi.waitFor(() => { expect(seen.at(-1)?.attempt).toMatchObject({ id: 'login-next', phase: 'waiting-browser' }) })
+    } finally { stop() }
+  })
+
   it('serves the welcome flow only when the plugin is the main account', async () => {
     expect(await connectVibeDevAccount(ORIGIN, host({ source: 'none', primary: true }).send)).toBeDefined()
     expect(await connectVibeDevAccount(ORIGIN, host({ source: 'none', primary: false }).send)).toBeUndefined()

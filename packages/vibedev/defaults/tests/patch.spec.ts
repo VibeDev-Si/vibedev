@@ -97,7 +97,15 @@ describe('VibeDev defaults bundle', () => {
 
   it('ships the plugin with the app at the same exact version, so it shows as built in and is never installed twice', () => {
     const spec = manifest.dependencies?.['@vibedev-si/dsh-vibedev']
-    expect(spec).toMatch(/^(\d+\.\d+\.\d+|file:.+\.tgz)$/)
+    const fixedArchive = new RegExp([
+      '^https://raw\\.githubusercontent\\.com/VibeDev-Si/dsh-vibedev/[0-9a-f]{40}/bundled/',
+      'vibedev-si-dsh-vibedev-\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?\\.tgz$',
+    ].join(''))
+    const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
+    expect(spec !== undefined && (exactVersion.test(spec) || fixedArchive.test(spec))).toBe(true)
+    // Local machine paths and moving Git branches must not become a shipped component pin.
+    expect(fixedArchive.test('https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/main/bundled/plugin.tgz')).toBe(false)
+    expect(exactVersion.test('file:C:/local/component.tgz')).toBe(false)
     const cli = JSON.parse(readFileSync(resolve(root, '../../../apps/cli/package.json'), 'utf8')) as Manifest
     expect(cli.dependencies?.['@vibedev-si/dsh-vibedev']).toBe(spec)
   })

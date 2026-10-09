@@ -1,6 +1,7 @@
 /** Operations available to the isolated native welcome renderer. */
 
 import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { DesktopAccountView } from './vibedev-sign-in-diagnostics.ts'
 import type { ProductEventMap } from '@deepseek-ai/dsh-client-product-analytics/types'
 import type { DesktopLocale } from './locale.ts'
 
@@ -64,7 +65,7 @@ export interface WelcomeOperations {
 /** The renderer receives localized copy, login operations, and safe account snapshots. */
 export type WelcomeApi = DesktopLocale & WelcomeOperations & {
   /** @param listener - safe account snapshot recipient. @returns subscription disposer. */
-  onAccountState(listener: (state: AccountView) => void): () => void
+  onAccountState(listener: (state: DesktopAccountView) => void): () => void
 }
 
 /** Authentication facts supplied at cold start or after a completed sign-out. */

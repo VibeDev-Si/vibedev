@@ -8,6 +8,7 @@
  */
 
 import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+import { nativeVibeDevAttempt, type DesktopAccountView, type DesktopSignInAttempt } from './vibedev-sign-in-diagnostics.ts'
 
 /** The plugin's account route. */
 export const VIBEDEV_ACCOUNT_ROUTE = '/api/dsh-vibedev/account'
@@ -18,6 +19,7 @@ interface PluginAccountView {
   readonly pending?: { readonly url: string; readonly expiresAt: number }
   readonly links: { readonly topUp: string; readonly usage: string }
   readonly primary?: boolean
+  readonly attempt?: DesktopSignInAttempt
 }
 
 /** The welcome flow's view of the VibeDev account: the DeepSeek account backend's interface, minus its extra streams. */
@@ -58,11 +60,13 @@ export function pluginAccountView(value: unknown): PluginAccountView {
   }
   const pending = record(value.pending) && typeof value.pending.url === 'string' && typeof value.pending.expiresAt === 'number'
     ? { url: value.pending.url, expiresAt: value.pending.expiresAt } : undefined
+  const attempt = nativeVibeDevAttempt(value.attempt)
   return {
     source: value.source as PluginAccountView['source'],
     links: { topUp: value.links.topUp, usage: value.links.usage },
     ...pending === undefined ? {} : { pending },
     ...typeof value.primary === 'boolean' ? { primary: value.primary } : {},
+    ...attempt === undefined ? {} : { attempt },
   }
 }
 
@@ -72,11 +76,16 @@ export function pluginAccountView(value: unknown): PluginAccountView {
  * @param attempt - an attempt to report instead of the pending one (a finished sign-in).
  * @returns the account projection.
  */
-export function accountViewOf(view: PluginAccountView, attempt?: AccountView['attempt']): AccountView {
+export function accountViewOf(view: PluginAccountView, attempt?: AccountView['attempt']): DesktopAccountView {
   return {
     status: view.source === 'none' ? 'signed-out' : 'credential-stored',
     links: { usageUrl: view.links.usage, topUpUrl: view.links.topUp },
-    attempt: attempt !== undefined ? attempt : view.pending === undefined ? null : {
+    // A retained success is historical once refresh/sign-out removes the credential.
+    // The welcome window must return to its sign-in entry, rather than wait on that old success.
+    attempt: view.source === 'none' && view.attempt?.phase === 'succeeded' ? null : view.attempt !== undefined ? {
+      ...view.attempt,
+      ...view.attempt.phase === 'waiting-browser' && view.pending !== undefined ? { authorizeUrl: view.pending.url } : {},
+    } : attempt !== undefined ? attempt : view.pending === undefined ? null : {
       id: attemptId(view.pending.expiresAt), phase: 'waiting-browser', authorizeUrl: view.pending.url, expiresAt: view.pending.expiresAt,
     },
   }
@@ -104,10 +113,13 @@ export async function connectVibeDevAccount(
   } = {},
 ): Promise<VibeDevAccountBackend | undefined> {
   const url = (path = ''): string => new URL(`${VIBEDEV_ACCOUNT_ROUTE}${path}`, origin).href
+  let latestAttempt: SignInAttemptId | undefined
   const read = async (fresh = false): Promise<PluginAccountView> => {
     const response = await send(url(fresh ? '?fresh=1' : ''), { credentials: 'include', redirect: 'error' })
     if (!response.ok) throw new Error(`vibedev account: HTTP ${response.status}`)
-    return pluginAccountView(await response.json())
+    const view = pluginAccountView(await response.json())
+    latestAttempt = view.attempt?.id
+    return view
   }
   const post = async (path: string, body: Record<string, unknown> = {}): Promise<void> => {
     const response = await send(url(path), {
@@ -129,6 +141,7 @@ export async function connectVibeDevAccount(
     break
   }
   if (first?.primary !== true) return undefined
+  latestAttempt = first.attempt?.id
   const now = options.now ?? Date.now
   let cancelled: SignInAttemptId | undefined
   // The sign-in the welcome flow waits for, shared by start() and the poll so a quick sign-in is not missed.
@@ -139,10 +152,19 @@ export async function connectVibeDevAccount(
     async start() {
       // The plugin opens the system browser itself, as it does from its Settings section.
       cancelled = undefined
-      await post('/sign-in', { open: true })
-      const view = await read()
-      if (view.pending !== undefined) waiting = { id: attemptId(view.pending.expiresAt), expiresAt: view.pending.expiresAt }
-      kick?.()
+      const previousAttempt = latestAttempt
+      let refused = false
+      try { await post('/sign-in', { open: true }) } catch { refused = true }
+      let view: PluginAccountView
+      try { view = await read() } finally { kick?.() }
+      // Listener/storage startup failures are retained by the Host even when the POST returns an error.
+      // A previous attempt is not evidence that this new request reached the Host.
+      if (refused && (view.attempt === undefined || view.attempt.id === previousAttempt)) {
+        throw new Error('vibedev account: sign-in could not start')
+      }
+      if (view.attempt !== undefined) waiting = ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(view.attempt.phase)
+        ? { id: view.attempt.id, expiresAt: view.attempt.expiresAt ?? now() } : undefined
+      else if (view.pending !== undefined) waiting = { id: attemptId(view.pending.expiresAt), expiresAt: view.pending.expiresAt }
       return accountViewOf(view)
     },
     async cancel(id) {
@@ -167,7 +189,9 @@ export async function connectVibeDevAccount(
           const view = await read()
           if (closed) return
           let attempt: AccountView['attempt'] | undefined
-          if (view.pending !== undefined) waiting = { id: attemptId(view.pending.expiresAt), expiresAt: view.pending.expiresAt }
+          if (view.attempt !== undefined) waiting = ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(view.attempt.phase)
+            ? { id: view.attempt.id, expiresAt: view.attempt.expiresAt ?? now() } : undefined
+          else if (view.pending !== undefined) waiting = { id: attemptId(view.pending.expiresAt), expiresAt: view.pending.expiresAt }
           else if (waiting !== undefined) {
             // The waiting sign-in ended: say how, once.
             const phase = view.source !== 'none' ? 'succeeded' : cancelled === waiting.id ? 'cancelled' : now() >= waiting.expiresAt ? 'expired' : 'failed'

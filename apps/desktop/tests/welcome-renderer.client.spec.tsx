@@ -49,6 +49,61 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
 }
 
 describe('desktop welcome presentation', () => {
+  it('ignores a stale signed-out snapshot while the new sign-in is starting', async () => {
+    const view = mount()
+    const started = Promise.withResolvers<AccountView>()
+    view.api.startSignIn.mockReturnValue(started.promise)
+    fireEvent.click(view.button('#sign-in'))
+    await act(async () => { view.api.onAccountState.mock.calls[0]![0]({
+      status: 'signed-out', links: { usageUrl: '', topUpUrl: '' }, attempt: null,
+    }) })
+    await act(async () => { started.resolve({
+      status: 'signed-out', links: { usageUrl: '', topUpUrl: '' },
+      attempt: { id: 'login-current' as never, phase: 'failed', errorCode: 'storage' },
+    }) })
+    expect(view.document.querySelector<HTMLElement>('#auth-page')?.hidden).toBe(false)
+    expect(view.document.querySelector('#auth-status')?.textContent).toBe(view.api.messages.welcomeAuthFailed)
+    expect(view.button('#auth-retry').hidden).toBe(false)
+  })
+
+  it('shows the committing stage and prevents cancelling an atomic write', async () => {
+    const view = mount()
+    await act(async () => { view.api.onAccountState.mock.calls[0]![0]({
+      status: 'signed-out', links: { usageUrl: '', topUpUrl: '' },
+      attempt: { id: 'login-safe' as never, phase: 'committing' },
+    }) })
+    expect(view.document.querySelector('#auth-status')?.textContent).toBe('正在保存登录信息…')
+    expect(view.button('#auth-cancel').disabled).toBe(true)
+    expect(view.button('#auth-copy').hidden).toBe(true)
+  })
+
+  it('shows classified VibeDev failures and a safe support reference', async () => {
+    const view = mount()
+    const state = {
+      status: 'signed-out' as const, links: { usageUrl: 'https://api.vibedev.studio/usage', topUpUrl: 'https://api.vibedev.studio/purchase' },
+      attempt: { id: 'login-safe' as never, phase: 'failed' as const, errorCode: 'network' as const, vibedevDiagnostic: {
+        gatewayOrigin: 'https://api.vibedev.studio', errorCode: 'gateway-unavailable', stage: 'redeem', httpStatus: 503,
+      } },
+    }
+    await act(async () => { view.api.onAccountState.mock.calls[0]![0](state) })
+    expect(view.document.querySelector('#auth-description')?.textContent).toContain('登录服务暂时不可用')
+    expect(view.document.querySelector('#auth-diagnostic')?.textContent).toContain('HTTP 503')
+    expect(view.document.querySelector('#auth-diagnostic')?.textContent).toContain('login-safe')
+    expect(view.button('#auth-retry').hidden).toBe(false)
+  })
+
+  it('omits untrusted fields from the diagnostic details and supports English guidance', async () => {
+    const view = mount('en')
+    const state = { status: 'signed-out' as const, links: { usageUrl: '', topUpUrl: '' }, attempt: {
+      id: 'login-safe' as never, phase: 'failed' as const, errorCode: 'storage' as const,
+      vibedevDiagnostic: { errorCode: 'storage', stage: 'persist', networkCode: 'private-token', message: 'private-password',
+        gatewayOrigin: 'https://private:user@api.vibedev.studio/path?token=private-code' },
+    } }
+    await act(async () => { view.api.onAccountState.mock.calls[0]![0](state) })
+    expect(view.document.querySelector('#auth-description')?.textContent).toContain('Could not save the sign-in locally')
+    expect(view.document.querySelector('#auth-diagnostic')?.textContent).not.toMatch(/private|user@|token=/)
+  })
+
   it.each(['zh-CN', 'en'])('renders the %s entry and API-key step', async (language) => {
     const view = mount(language)
     expect(view.document.documentElement.lang).toBe(language)
