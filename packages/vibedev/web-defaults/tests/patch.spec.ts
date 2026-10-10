@@ -57,9 +57,20 @@ describe('VibeDev Web defaults bundle', () => {
     ])
   })
 
-  it('inserts the VibeDev brand from a package the bundle depends on', () => {
-    expect(inserted).toEqual([{ id: 'vibedev-brand', name: '@vibedev/dsh-client-brand' }])
-    expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev/dsh-client-brand'])
+  it('inserts the VibeDev brand and the built-in VibeDev Ecosystem from packages the bundle depends on', () => {
+    expect(inserted).toEqual([
+      { id: 'vibedev-brand', name: '@vibedev/dsh-client-brand' },
+      // Same row id as a user install, so the Desktop Host's installation copy replaces a profile copy.
+      { id: 'vibedev-center', name: '@vibedev-si/dsh-ecosystem', config: { official: true } },
+    ])
+    expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev/dsh-client-brand', '@vibedev-si/dsh-ecosystem'])
+  })
+
+  it('pins the ecosystem exactly, at the version the CLI install anchor ships', () => {
+    const cli = JSON.parse(readFileSync(resolve(root, '../../../apps/cli/package.json'), 'utf8')) as Manifest
+    const pinned = manifest.dependencies?.['@vibedev-si/dsh-ecosystem']
+    expect(pinned).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(cli.dependencies?.['@vibedev-si/dsh-ecosystem']).toBe(pinned)
   })
 
   it('restates the upstream webserver config (TLS included) with only the fallback port changed', () => {

@@ -33,6 +33,16 @@
     - id: vibedev-brand
       name: '@vibedev/dsh-client-brand'
 
+# The VibeDev Ecosystem is built into VibeDev Next: same row id and package as a user
+# install, so an install a profile already has is replaced by this one (installationPlugins
+# in the Desktop Host). `official: true` lists it in the Official group of the Plugins page
+# (opening the card opens the ecosystem) and says its updates come with the app.
+- insert:
+    - id: vibedev-center
+      name: '@vibedev-si/dsh-ecosystem'
+      config:
+        official: true
+
 # `vibedev-app web` listens on 3180 by default so it never collides with an
 # installed DeepSeek Harness on 3080; `--port` and the Desktop Host still win.
 - id: webserver

@@ -33,10 +33,10 @@ const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 /**
  * VibeDev: packages the runtime build installs from the registry the day they are released. The VibeDev account
- * plugin is ours and pinned by the defaults bundle; an app release that bumps it should not wait out pnpm's one-day
- * release age.
+ * plugin and the VibeDev Ecosystem are ours and pinned by the defaults bundles; an app release that bumps one should
+ * not wait out pnpm's one-day release age.
  */
-const RELEASE_AGE_EXCLUDE = "minimumReleaseAgeExclude:\n  - '@vibedev-si/dsh-vibedev'\n"
+const RELEASE_AGE_EXCLUDE = "minimumReleaseAgeExclude:\n  - '@vibedev-si/dsh-vibedev'\n  - '@vibedev-si/dsh-ecosystem'\n"
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
 }

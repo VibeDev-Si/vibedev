@@ -21,7 +21,8 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@vibedev/dsh-client-brand": "workspace:*"
+    "@vibedev/dsh-client-brand": "workspace:*",
+    "@vibedev-si/dsh-ecosystem": "0.1.9"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"

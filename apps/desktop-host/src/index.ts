@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),
     profile: 'desktop',
-    resolvedProfile: { profile, installAnchor, installationPlugins: ['@vibedev-si/dsh-vibedev'] },
+    resolvedProfile: { profile, installAnchor, installationPlugins: ['@vibedev-si/dsh-vibedev', '@vibedev-si/dsh-ecosystem'] },
     patchFiles: [],
     args: ['--no-open', '--host', '127.0.0.1', '--port', '0'],
     ...(process.argv[5] === undefined ? {} : {

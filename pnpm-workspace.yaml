@@ -68,6 +68,7 @@ minimumReleaseAgeExclude:
   - '@earendil-works/pi-telemetry@1.0.2'
   # The VibeDev account plugin is ours, released together with the app that pins it.
   - '@vibedev-si/dsh-vibedev'
+  - '@vibedev-si/dsh-ecosystem'
   # This addon release recognizes the Electron 44.7.0 Node/V8 fingerprint used by Desktop.
   - node-addon-native-custom-loader@0.1.9
   - node-addon-require-builtin-darwin-arm64@0.1.9

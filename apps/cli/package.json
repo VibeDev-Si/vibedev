@@ -90,6 +90,7 @@
     "@vibedev/dsh-defaults": "workspace:*",
     "@vibedev/dsh-web-defaults": "workspace:*",
     "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/ef6913915de3b44e77d4ca0a4b23f230d3331d0f/bundled/vibedev-si-dsh-vibedev-0.3.0.tgz",
+    "@vibedev-si/dsh-ecosystem": "0.1.9",
     "@deepseek-ai/schemastery": "workspace:~",
     "commander": "^15.0.0",
     "js-yaml": "^4.3.2",

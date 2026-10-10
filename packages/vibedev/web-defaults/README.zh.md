@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-本 bundle 在 `dsh-web-app` 之后加载，停用 DeepSeek 产品分析和品牌，加载 VibeDev 浏览器品牌，把 DeepSeek 账号放在侧边栏副账号入口，并配置 Web 服务。
+本 bundle 在 `dsh-web-app` 之后加载，停用 DeepSeek 产品分析和品牌，加载 VibeDev 浏览器品牌，内置 VibeDev 生态，把 DeepSeek 账号放在侧边栏副账号入口，并配置 Web 服务。
 
 ## 目录
 
@@ -24,6 +24,8 @@ kind: "package-bundle"
 ## 配置与职责
 
 完整行配置以 [cordis.patch.yml](cordis.patch.yml) 为准，其中包含 Web 身份与当前 profile 的插件安装指引。
+
+VibeDev 生态（`@vibedev-si/dsh-ecosystem`，在此处与 CLI 安装锚点精确固定同一版本）以它自己的行 id `vibedev-center` 插入，并带 `config: { official: true }`：插件页把它列在「官方」分组，点开卡片即进入生态页面，生态显示版本随应用更新。Desktop Host 把它列为安装内插件，profile 里此前安装的副本不会同时加载。
 
 <a id="model-experience"></a>
 ## 模型体验

@@ -106,7 +106,7 @@ try {
     assert.deepEqual(profile.skippedBundles, [])
     const profileContext = { name: label, dir: profileDir, home: process.env.DSH_HOME, installAnchor,
       patchPath: profile.patchPath, cwd: tmp, startedBundles: profile.layers.map(layer => layer.packageName),
-      installationPlugins: ['@vibedev-si/dsh-vibedev'], telemetryDisabledEnv: undefined,
+      installationPlugins: ['@vibedev-si/dsh-vibedev', '@vibedev-si/dsh-ecosystem'], telemetryDisabledEnv: undefined,
       overlays: [{ id: 'dsh-vibedev', config: { ...selected, stateDir, openBrowserOnSignIn: false } }] }
     const resolution = await createRuntimeResolution({ installAnchor, profile, home: process.env.DSH_HOME,
       installationPlugins: profileContext.installationPlugins })

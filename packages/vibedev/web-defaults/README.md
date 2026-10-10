@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This bundle follows `dsh-web-app`: it disables DeepSeek product analytics and branding, loads the VibeDev browser brand, places the DeepSeek account in the secondary sidebar entry and configures the Web server.
+This bundle follows `dsh-web-app`: it disables DeepSeek product analytics and branding, loads the VibeDev browser brand, builds in the VibeDev Ecosystem, places the DeepSeek account in the secondary sidebar entry and configures the Web server.
 
 ## Table of Contents
 
@@ -24,6 +24,8 @@ This bundle follows `dsh-web-app`: it disables DeepSeek product analytics and br
 ## Configuration and ownership
 
 [cordis.patch.yml](cordis.patch.yml) owns the complete patched rows, including the Web persona and current-profile plugin installation guidance.
+
+The VibeDev Ecosystem (`@vibedev-si/dsh-ecosystem`, pinned exactly here and in the CLI install anchor) is inserted with its own row id `vibedev-center` and `config: { official: true }`: the Plugins page lists it in the Official group and opening its card opens the ecosystem, which reports that it updates with the app. The Desktop Host names it among its installation plugins, so a copy a profile installed earlier never loads beside it.
 
 <a id="model-experience"></a>
 ## Model Experience
