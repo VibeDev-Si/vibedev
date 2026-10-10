@@ -27,6 +27,8 @@ kind: "package-bundle"
 
 VibeDev 生态（`@vibedev-si/dsh-ecosystem`，在此处与 CLI 安装锚点精确固定同一版本）以它自己的行 id `vibedev-center` 插入，并带 `config: { official: true }`：插件页把它列在「官方」分组，点开卡片即进入生态页面，生态显示版本随应用更新。Desktop Host 把它列为安装内插件，profile 里此前安装的副本不会同时加载。
 
+本包模块本身就是 `vibedev-web-runtime` 行：dsh-v0.2.1-alpha.2 用 `webStartup` 取代了 `webRuntime` 服务，而为早期版本编写的插件（媒体预览、Better Sidebar）依赖 `webRuntime`。该行按 alpha.1 的方式提供它，取值来自监听地址与 `--trusted-host`。
+
 <a id="model-experience"></a>
 ## 模型体验
 

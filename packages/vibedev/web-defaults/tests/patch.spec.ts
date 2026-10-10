@@ -57,9 +57,11 @@ describe('VibeDev Web defaults bundle', () => {
     ])
   })
 
-  it('inserts the VibeDev brand and the built-in VibeDev Ecosystem from packages the bundle depends on', () => {
+  it('inserts the VibeDev brand, the webRuntime compatibility row and the built-in VibeDev Ecosystem', () => {
     expect(inserted).toEqual([
       { id: 'vibedev-brand', name: '@vibedev/dsh-client-brand' },
+      // This package itself: provides `webRuntime` for plugins written before dsh-v0.2.1-alpha.2.
+      { id: 'vibedev-web-runtime', name: '@vibedev/dsh-web-defaults' },
       // Same row id as a user install, so the Desktop Host's installation copy replaces a profile copy.
       { id: 'vibedev-center', name: '@vibedev-si/dsh-ecosystem', config: { official: true } },
     ])

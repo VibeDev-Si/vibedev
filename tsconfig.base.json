@@ -28,9 +28,10 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
-      // VibeDev fork: the brand package the VibeDev web defaults insert (FORK-DELTA).
+      // VibeDev fork: the packages the VibeDev web defaults insert as rows (FORK-DELTA).
       "@vibedev/dsh-client-brand": ["./packages/vibedev/client-brand/src/index.ts"],
       "@vibedev/dsh-client-brand/client": ["./packages/vibedev/client-brand/src/client/index.ts"],
+      "@vibedev/dsh-web-defaults": ["./packages/vibedev/web-defaults/src/index.ts"],
       "@deepseek-ai/dsh-experimental-session-search": ["./packages/experimental/session-search/src/index.ts"],
       "@deepseek-ai/dsh-experimental-ralph-bundle": ["./packages/experimental/ralph-bundle/src/index.ts"],
       "@deepseek-ai/dsh-experimental-terminal-bundle": ["./packages/experimental/terminal-bundle/src/index.ts"],

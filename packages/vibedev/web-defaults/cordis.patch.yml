@@ -33,6 +33,13 @@
     - id: vibedev-brand
       name: '@vibedev/dsh-client-brand'
 
+# dsh-v0.2.1-alpha.2 replaced the `webRuntime` service with `webStartup`. Plugins
+# written for earlier releases (the media viewer, Better Sidebar) inject
+# `webRuntime` and would never load; this row provides it as alpha.1 did.
+- insert:
+    - id: vibedev-web-runtime
+      name: '@vibedev/dsh-web-defaults'
+
 # The VibeDev Ecosystem is built into VibeDev Next: same row id and package as a user
 # install, so an install a profile already has is replaced by this one (installationPlugins
 # in the Desktop Host). `official: true` lists it in the Official group of the Plugins page

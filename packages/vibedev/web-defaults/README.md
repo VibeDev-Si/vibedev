@@ -27,6 +27,8 @@ This bundle follows `dsh-web-app`: it disables DeepSeek product analytics and br
 
 The VibeDev Ecosystem (`@vibedev-si/dsh-ecosystem`, pinned exactly here and in the CLI install anchor) is inserted with its own row id `vibedev-center` and `config: { official: true }`: the Plugins page lists it in the Official group and opening its card opens the ecosystem, which reports that it updates with the app. The Desktop Host names it among its installation plugins, so a copy a profile installed earlier never loads beside it.
 
+The package module itself is the row `vibedev-web-runtime`: dsh-v0.2.1-alpha.2 replaced the `webRuntime` service with `webStartup`, and plugins written for earlier releases (the media viewer, Better Sidebar) inject `webRuntime`. The row provides it as alpha.1 did, from the bind host and the `--trusted-host` values.
+
 <a id="model-experience"></a>
 ## Model Experience
 
