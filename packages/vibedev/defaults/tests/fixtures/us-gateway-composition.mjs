@@ -125,7 +125,7 @@ try {
     const account = ctx.loader.resolve('include:dsh-vibedev')
     assert.equal(account.options.config.primary, true)
     assert.equal(account.options.config.gatewayOrigin, american)
-    assert.equal(ctx.pluginPackages.packageOf('@vibedev-si/dsh-vibedev', pathToFileURL(config).href).version, '0.2.8-us.3')
+    assert.equal(ctx.pluginPackages.packageOf('@vibedev-si/dsh-vibedev', pathToFileURL(config).href).version, '0.3.0')
     assert.equal(JSON.parse(await readFile(join(oldPlugin, 'package.json'), 'utf8')).version, '0.2.6')
     contexts.push(ctx)
     return ctx
