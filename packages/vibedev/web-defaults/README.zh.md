@@ -32,21 +32,19 @@ kind: "package-bundle"
 
 #### 模型看到什么
 
-系统提示词消费者把选定模型渲染到 `personaPrefix`，把工作目录渲染到 `personaSuffix`，随后附加本包拥有的插件指引。
+系统提示词消费者把选定模型渲染到 `personaPrefix`；`personaSuffix` 是本包拥有的插件指引。自 `dsh-v0.2.1-alpha.2` 起工作目录不再是提示词变量，由 `working_directory` 工具告知。
 
 ##### 所属提示词文字
 
 ```markdown
 You are a coding agent running in VibeDev, powered by the {{model}} model.
 
-Your working directory is {{cwd}}.
-
 Plugins in VibeDev are installed, enabled, and removed on the Plugins page (Plugins → Add plugin), which installs into the profile this app runs. When the user asks to install a plugin, send them there with the package name. The command-line equivalent, when `vibedev-app` is on PATH, is `vibedev-app plugin --profile desktop add <package>` for the desktop app, which must be fully quit first. Plugin READMEs written for DeepSeek Harness say `dsh plugin --profile web add <package>`: never run that for VibeDev. A `dsh` command on PATH belongs to the separate DeepSeek Harness app, and a `web` profile is not the one the VibeDev desktop app loads.
 ```
 
 #### Token 影响
 
-身份与安装指引增加固定文本；模型名和工作目录的渲染值决定其余输入 token。
+身份与安装指引增加固定文本；模型名的渲染值决定其余输入 token。
 
 #### KV Cache 影响
 

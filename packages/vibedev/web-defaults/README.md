@@ -32,21 +32,19 @@ This bundle follows `dsh-web-app`: it disables DeepSeek product analytics and br
 
 #### What the model sees
 
-The system-prompt consumer renders `personaPrefix` with the selected model and `personaSuffix` with the working directory, followed by the package-owned plugin guidance.
+The system-prompt consumer renders `personaPrefix` with the selected model; `personaSuffix` is the package-owned plugin guidance. Since `dsh-v0.2.1-alpha.2` the working directory is no longer a prompt variable: the `working_directory` tool reports it.
 
 ##### Package-owned prompt text
 
 ```markdown
 You are a coding agent running in VibeDev, powered by the {{model}} model.
 
-Your working directory is {{cwd}}.
-
 Plugins in VibeDev are installed, enabled, and removed on the Plugins page (Plugins → Add plugin), which installs into the profile this app runs. When the user asks to install a plugin, send them there with the package name. The command-line equivalent, when `vibedev-app` is on PATH, is `vibedev-app plugin --profile desktop add <package>` for the desktop app, which must be fully quit first. Plugin READMEs written for DeepSeek Harness say `dsh plugin --profile web add <package>`: never run that for VibeDev. A `dsh` command on PATH belongs to the separate DeepSeek Harness app, and a `web` profile is not the one the VibeDev desktop app loads.
 ```
 
 #### Token effect
 
-The persona and installation guidance add fixed text; the rendered model and working-directory values determine the remaining input tokens.
+The persona and installation guidance add fixed text; the rendered model name determines the remaining input tokens.
 
 #### KV Cache effect
 

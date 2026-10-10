@@ -62,7 +62,7 @@ describe('VibeDev Web defaults bundle', () => {
     expect(Object.keys(manifest.dependencies ?? {})).toEqual(['@vibedev/dsh-client-brand'])
   })
 
-  it('restates the upstream webserver config with only the fallback port changed', () => {
+  it('restates the upstream webserver config (TLS included) with only the fallback port changed', () => {
     const upstream = rows(load(webAppPatch)).find(row => row.id === 'webserver')?.config
     const ours = targeted.find(row => row.id === 'webserver')?.config
     expect(ours).toEqual({ ...upstream, port: { __jsExpr: 'ctx.webStartup.port ?? 3180' } })
@@ -74,12 +74,13 @@ describe('VibeDev Web defaults bundle', () => {
     expect(ours.includeHarnessIdentity).toBe(false)
     expect(ours.personaPrefix).toBe('You are a coding agent running in VibeDev, powered by the {{model}} model.')
     expect(upstream.personaPrefix).toContain('{{model}}')
-    // The upstream suffix leads, so the model keeps its working directory.
-    expect(String(ours.personaSuffix).startsWith(upstream.personaSuffix)).toBe(true)
+    // Upstream has no persona suffix since dsh-v0.2.1-alpha.2 (the working_directory tool reports the
+    // directory); if it grows one again, ours must lead with it.
+    if (upstream.personaSuffix !== undefined) expect(String(ours.personaSuffix).startsWith(upstream.personaSuffix)).toBe(true)
     expect(ours.personaSuffix).toContain('vibedev-app plugin --profile desktop add <package>')
     expect(ours.personaSuffix).toContain('never run that for VibeDev')
-    // Templates are strict: the only variables are the ones the system prompt defines.
-    expect([...(String(ours.personaPrefix) + String(ours.personaSuffix)).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model', 'cwd'])
+    // Templates are strict: the only variables are the ones the system prompt defines ({{cwd}} is gone).
+    expect([...(String(ours.personaPrefix) + String(ours.personaSuffix)).matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])).toEqual(['model'])
   })
 
   it('makes the DeepSeek account the second account: a foot entry, without its product onboarding', () => {

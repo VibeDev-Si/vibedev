@@ -9,7 +9,7 @@ kind: "package-group"
 
 ## 概述
 
-默认 bundle 在 Harness 运行时之上组合 VibeDev Next。当前双账号组合从 npm 精确版本的外部插件获得 VibeDev 账号、模型、媒体与搜索能力；此前的账号与网关提供方保留在本目录中，默认配置不加载它们。
+默认 bundle 在 Harness 运行时之上组合 VibeDev Next。当前双账号组合从 npm 精确版本的外部插件获得 VibeDev 账号、模型、媒体与搜索能力；此前的账号与网关提供方已随 `dsh-v0.2.1-alpha.2` 合并删除。
 
 ## 目录
 
@@ -27,9 +27,6 @@ kind: "package-group"
 | [defaults](defaults/README.zh.md) | 共享产品组合与外部账号插件 |
 | [web-defaults](web-defaults/README.zh.md) | Web/Desktop 组合、DeepSeek 副账号与身份提示词 |
 | [client-brand](client-brand/README.zh.md) | 浏览器品牌插槽 |
-| [account](account/README.zh.md) | 保留的单账号网关服务 |
-| [llm-gateway](llm-gateway/README.zh.md) | 保留的账号路由模型适配器 |
-| [web-search-gateway](web-search-gateway/README.zh.md) | 保留的网关搜索提供方 |
 
 <a id="subsystem-ownership"></a>
 ## 子系统归属

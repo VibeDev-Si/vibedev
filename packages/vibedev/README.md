@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The defaults bundles compose VibeDev Next over the Harness runtime. Current dual-account composition gets its VibeDev account, models, media and search from the npm-pinned external plugin; the earlier account and gateway providers remain in this tree and are not mounted by the defaults.
+The defaults bundles compose VibeDev Next over the Harness runtime. Current dual-account composition gets its VibeDev account, models, media and search from the npm-pinned external plugin; the earlier account and gateway providers were removed with the `dsh-v0.2.1-alpha.2` merge.
 
 ## Table of Contents
 
@@ -27,9 +27,6 @@ The defaults bundles compose VibeDev Next over the Harness runtime. Current dual
 | [defaults](defaults/README.md) | Shared product composition and the external account plugin |
 | [web-defaults](web-defaults/README.md) | Web/Desktop composition, secondary DeepSeek account and persona |
 | [client-brand](client-brand/README.md) | Browser brand slots |
-| [account](account/README.md) | Retained single-account gateway service |
-| [llm-gateway](llm-gateway/README.md) | Retained account-route model adapter |
-| [web-search-gateway](web-search-gateway/README.md) | Retained gateway search provider |
 
 <a id="subsystem-ownership"></a>
 ## Subsystem ownership
