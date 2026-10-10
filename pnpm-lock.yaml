@@ -476,8 +476,8 @@ importers:
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
       '@vibedev-si/dsh-ecosystem':
-        specifier: 0.1.10
-        version: 0.1.10
+        specifier: 0.1.11
+        version: 0.1.11
       '@vibedev-si/dsh-vibedev':
         specifier: https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/ef6913915de3b44e77d4ca0a4b23f230d3331d0f/bundled/vibedev-si-dsh-vibedev-0.3.0.tgz
         version: https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/ef6913915de3b44e77d4ca0a4b23f230d3331d0f/bundled/vibedev-si-dsh-vibedev-0.3.0.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)
@@ -14764,8 +14764,8 @@ importers:
   packages/vibedev/web-defaults:
     dependencies:
       '@vibedev-si/dsh-ecosystem':
-        specifier: 0.1.10
-        version: 0.1.10
+        specifier: 0.1.11
+        version: 0.1.11
       '@vibedev/dsh-client-brand':
         specifier: workspace:*
         version: link:../client-brand
@@ -18874,8 +18874,8 @@ packages:
   '@upsetjs/venn.js@2.0.0':
     resolution: {integrity: sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw==}
 
-  '@vibedev-si/dsh-ecosystem@0.1.10':
-    resolution: {integrity: sha512-7YZVJ84r+FAGdQIb8NhKahFarqSVwKVjg/78+WhKAcoe5hkNJHcThxAD/ZcsC/kSrMHUrfgqn/SGhtXCkMT1Sg==}
+  '@vibedev-si/dsh-ecosystem@0.1.11':
+    resolution: {integrity: sha512-MwidRvRmTFg+xhphjar3KuNOUWgk3iIPlPg6CrIs1ioQhjBO0tvRxlucNLkqrvifujL46BXabz3bfo3PNvYoRQ==}
     engines: {node: '>=20'}
 
   '@vibedev-si/dsh-vibedev@https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/ef6913915de3b44e77d4ca0a4b23f230d3331d0f/bundled/vibedev-si-dsh-vibedev-0.3.0.tgz':
@@ -26126,7 +26126,7 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
-  '@vibedev-si/dsh-ecosystem@0.1.10': {}
+  '@vibedev-si/dsh-ecosystem@0.1.11': {}
 
   '@vibedev-si/dsh-vibedev@https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/ef6913915de3b44e77d4ca0a4b23f230d3331d0f/bundled/vibedev-si-dsh-vibedev-0.3.0.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-attachment@packages+attachment+attachment)(@deepseek-ai/dsh-brand@packages+util+brand)(@deepseek-ai/dsh-credentials@packages+credentials+credentials)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-timeout@packages+util+timeout)(@deepseek-ai/dsh-tools@packages+core+tools)(@deepseek-ai/dsh-web@packages+web+web)(@deepseek-ai/schemastery@vendor+schemastery)':
     dependencies:
