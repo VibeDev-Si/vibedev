@@ -230,7 +230,8 @@ describe('runtime resolution', { concurrent: false }, () => {
     const f = fixture('@vibedev-si/dsh-vibedev')
     const name = '@vibedev-si/dsh-vibedev'
     const local = join(f.profile.dir, 'node_modules', name)
-    pkg(local, name, 2)
+    // 0.0.0 against the shipped 1.0.0: a copy left behind by an earlier installation.
+    pkg(local, name, 0)
     file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: { [name]: '*' } }))
     const resolution = await createRuntimeResolution({
       installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
@@ -247,6 +248,62 @@ describe('runtime resolution', { concurrent: false }, () => {
       entries: resolution.entries.map(entry => ({ ...entry, applicationOwned: false })) }
     expect(() => { registration.replace(successor) }).toThrow('requires a process restart')
     expect(existsSync(join(local, 'package.json'))).toBe(true)
+  })
+
+  it('runs a newer compatible profile copy of an application-owned plugin instead of the shipped one', async () => {
+    const f = fixture('@vibedev-si/dsh-vibedev')
+    const name = '@vibedev-si/dsh-vibedev'
+    const local = join(f.profile.dir, 'node_modules', name)
+    pkg(local, name, 2)
+    file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: { [name]: '2.0.0' } }))
+    const resolution = await createRuntimeResolution({
+      installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
+    })
+    expect(resolution.entries.find(entry => entry.name === name)?.applicationOwned).toBeUndefined()
+    const registration = installRuntimeInterception(resolution)
+    registrations.push(registration)
+    const parent = join(f.profile.dir, 'entry.cjs')
+    expect(createRequire(parent).resolve(name)).toBe(join(local, 'index.cjs'))
+    expect(resolveFrom(name, pathToFileURL(parent).href)).toBe(pathToFileURL(join(local, 'index.js')).href)
+  })
+
+  it('keeps the shipped copy when the newer profile copy is incompatible with the running dsh', async () => {
+    const f = fixture('@vibedev-si/dsh-vibedev')
+    const name = '@vibedev-si/dsh-vibedev'
+    const local = join(f.profile.dir, 'node_modules', name)
+    pkg(local, name, 2, {}, { '@deepseek-ai/dsh': '>=999.0.0' })
+    file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: { [name]: '2.0.0' } }))
+    const resolution = await createRuntimeResolution({
+      installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
+    })
+    expect(resolution.entries.find(entry => entry.name === name)?.applicationOwned).toBe(true)
+    const registration = installRuntimeInterception(resolution)
+    registrations.push(registration)
+    expect(createRequire(join(f.profile.dir, 'entry.cjs')).resolve(name)).toBe(join(f.installed, 'index.cjs'))
+  })
+
+  it('decides the copy once per process: a refresh keeps the startup choice after an update lands', async () => {
+    const f = fixture('@vibedev-si/dsh-vibedev')
+    const name = '@vibedev-si/dsh-vibedev'
+    file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: {} }))
+    const resolution = await createRuntimeResolution({
+      installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
+    })
+    const registration = installRuntimeInterception(resolution)
+    registrations.push(registration)
+    // The update arrives while the process runs.
+    const local = join(f.profile.dir, 'node_modules', name)
+    pkg(local, name, 2)
+    file(join(f.profile.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-web', dependencies: { [name]: '2.0.0' } }))
+    const successor = await resolution.computeLatestResolution()
+    expect(successor.entries.find(entry => entry.name === name)?.applicationOwned).toBe(true)
+    expect(() => { registration.replace(successor) }).not.toThrow()
+    expect(createRequire(join(f.profile.dir, 'entry.cjs')).resolve(name)).toBe(join(f.installed, 'index.cjs'))
+    // The next process starts on the update.
+    const next = await createRuntimeResolution({
+      installAnchor: f.installAnchor, profile: f.profile, home: f.root, installationPlugins: [name],
+    })
+    expect(next.entries.find(entry => entry.name === name)?.applicationOwned).toBeUndefined()
   })
 
   it('computes an immutable runtime resolution without writing profile packages', async () => {

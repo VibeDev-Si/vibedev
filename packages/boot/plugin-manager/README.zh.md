@@ -45,6 +45,8 @@ kind: "package-reference"
 
 `listBundles` 将随附可选组合包和按需目录项标为 `official`，与包的安装状态独立。`availability` 表示可读取的安装随附包、profile 包，或 `missing`；按需目录项不计入未声明的传递依赖副本。`installed` 仅表示 profile 是否声明该依赖。尚未安装的按需条目携带内嵌的本地化元信息，以及 Host 生成、包含当前 DSH 版本与安装 spec 的 `installTarget`，无需访问注册表。profile 已声明但文件不可读的包保留依赖声明，并展示原有错误。
 
+launcher 在 `installationPlugins` 中声明的包会返回 `application`：内置版本、profile 自己的副本（如有），以及下次启动选中的副本。内置副本是保底版本。`inspect` 只接受比内置版本更高的精确版本，作为该包的更新。`installBundle` 将其装在内置副本旁边，不选中组合包，并返回 `restart-required`。更新必须通过兼容性检查，否则恢复 profile 文件。`removeBundle` 只移除 profile 副本，下次启动回到内置副本。整个过程中应用自身的层持续运行该包。
+
 `inspect(spec, options)` 在任何东西安装之前读出 spec 指向什么：注册表包名通过 `pnpm view` 询问注册表，在 profile 目录中运行，因而与安装使用同样的代理与认证设置；绝对路径读取其 `package.json`；git 地址或 tarball 只答复自己的形式和它被拉取的 `host`。答复携带名称、版本、描述、该包是否声明组合包，以及作答的 `registry`，否则给出 `problem`：`invalid-spec`、`already-installed`、`not-found`、`not-a-package`、`not-a-bundle`、`network` 或 `unknown`，并附上问过的 `registries`。调用方的 `signal` 或 `inspectTimeoutMs` 会结束查询。
 
 已发布的安装提供 `package@<当前 DSH 版本>`。源码 Web 与开发 Desktop 提供 `link:<工作区包的绝对目录>`，目录来自当前 CLI 的安装位置，包括其开发符号链接。包名通过工作区清单解析；当前工作目录和预发布版本后缀不用于选择 checkout。包、bundle patch 或已构建入口缺失时报告诊断，不回退到注册表。使用 `pnpm install` 和 `pnpm run build` 准备 checkout。链接包使用该 checkout 的依赖与 peer；代码改变后仍需重新构建并重启。即使版本相同，注册表副本或其他 checkout 的链接也可能需要替换。

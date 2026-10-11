@@ -20,6 +20,7 @@ import { createLaunchEnvironmentSnapshot, type LaunchEnvironmentSnapshot } from 
 export { readProfilePatches, resolveTelemetryPatch, type ProfileContext, type ProfilePnpmInvocation } from './profile-context.ts'
 export { sanitizeProfile } from './profile-sanitize.ts'
 export { getDshRuntimeVersion, evaluatePluginCompatibility, pluginCompatibilityWarning, type PluginCompatibility } from './plugin-compatibility.ts'
+export { applicationCopyOf, type ApplicationCopy } from './application-copy.ts'
 export {
   PROFILE_COMPATIBILITY_FILENAME, readProfileCompatibility, readProfileVersionExemptions,
   setProfileVersionExemption, type ProfileCompatibility,

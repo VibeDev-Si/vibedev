@@ -16,8 +16,9 @@ import {
   reconcileProfilePatches, readProfilePatches, OPTIONAL_BUNDLES, bundlePatchPaths,
   evaluatePluginCompatibility, readProfileCompatibility, readProfileVersionExemptions,
   setProfileVersionExemption, PROFILE_COMPATIBILITY_FILENAME,
-  OFFICIAL_ON_DEMAND_CATALOG, getDshRuntimeVersion,
+  OFFICIAL_ON_DEMAND_CATALOG, getDshRuntimeVersion, applicationCopyOf,
 } from '@deepseek-ai/dsh-app-boot'
+import semver from 'semver'
 import type {} from '@deepseek-ai/dsh-hmr'
 import type { ProfileContext, ProfileManifest } from '@deepseek-ai/dsh-app-boot'
 import { bundleManifest, readProfileRegistry, registryArguments, runProfilePnpm, saveManifest, viewProfilePackage } from './operations.ts'
@@ -312,7 +313,13 @@ export class PluginManager extends TypertRemoteService {
       }
       // Installation-owned copies remain protected even if a profile also declares their names.
       const owned = installed && !shipped
-      const removable = owned || (enabled && !installed && !shipped)
+      // An application-owned package may also have a profile copy: removing it returns to the shipped one.
+      const copy = shipped && this.applicationOwned(name)
+        ? applicationCopyOf(name, this.profile.installAnchor, this.profile.dir, exemptions) : undefined
+      const application: Pick<BundleInfo, 'application'> = copy === undefined ? {} : { application: {
+        ...copy.shipped === undefined ? {} : { shipped: copy.shipped }, ...copy.local === undefined ? {} : { local: copy.local },
+        selected: copy.selected, ...copy.reason === undefined ? {} : { reason: copy.reason } } }
+      const removable = owned || (enabled && !installed && !shipped) || (copy !== undefined && installed)
       const sourceOf = (packageName?: string): { source?: string } =>
         owned ? { source: dependencySpec(name, recorded[name] as string, this.profile.dir, packageName) } : {}
       const readOnlyReason = this.protectsManager(name) ? 'management-required' as const : undefined
@@ -327,7 +334,7 @@ export class PluginManager extends TypertRemoteService {
             ...(readOnlyReason === undefined ? {} : { readOnlyReason }), error: targetError ?? { code: 'not-bundle' }, rows: [], overrides: [] })
           continue
         }
-        version = info.version
+        version = copy?.selected === 'profile' ? copy.local : info.version
         const compatibility = evaluatePluginCompatibility(info, exemptions)
         if (compatibility !== undefined && !compatibility.exempted) throw new ManagementFailure('incompatible-version', [incompatiblePlugin(compatibility)])
         const dir = resolveBundleDir('dsh', name, this.profile.installAnchor, this.profile.dir)
@@ -337,11 +344,12 @@ export class PluginManager extends TypertRemoteService {
           ...meta === undefined ? {} : { meta },
           ...sourceOf(info.name), enabled, installed, optional, removable: removable && readOnlyReason === undefined,
           ...(readOnlyReason === undefined ? {} : { readOnlyReason }),
-          ...this.declaredRows(name, info),
+          ...this.declaredRows(name, info), ...application,
           ...targetError === undefined ? {} : { error: targetError } })
       } catch (error) {
-        if (enabled || installed || optional || offered !== undefined) {
-          bundles.push({ name, official, availability, ...catalogMeta, ...target, ...(version === undefined ? {} : { version }),
+        if (enabled || installed || optional || offered !== undefined || copy !== undefined) {
+          bundles.push({ name, official, availability, ...catalogMeta, ...target, ...application,
+            ...(version === undefined ? {} : { version }),
             ...sourceOf(), enabled, installed, optional, removable: removable && readOnlyReason === undefined,
             ...(readOnlyReason === undefined ? {} : { readOnlyReason }),
             error: targetError ?? managementError(error), rows: [], overrides: [] })
@@ -407,7 +415,11 @@ export class PluginManager extends TypertRemoteService {
         return inspection
       }
       case 'registry': {
-        if (known.has(parsed.name)) return refused('already-installed', `${parsed.name} is already installed`)
+        // An application-owned package takes an exact version newer than the shipped one: its update, which
+        // replaces the shipped copy from the next start.
+        if (known.has(parsed.name) && !this.updatesApplicationCopy(parsed.name, parsed.range)) {
+          return refused('already-installed', `${parsed.name} is already installed`)
+        }
         const registries: Registry[] = []
         const refusedBy = (problem: PluginInspectProblem, reason: string): PluginSpecInspection =>
           ({ status: 'refused', problem, reason, registries })
@@ -580,8 +592,11 @@ export class PluginManager extends TypertRemoteService {
         const target = installed[0]
         if (installed.length !== 1 || target === undefined) throw new ManagementFailure('ambiguous-install')
         name = target
-        const dir = resolveBundleDir('dsh', name, this.profile.installAnchor, this.profile.dir)
-        const manifest = bundleManifest(name, this.profile.dir, this.profile.installAnchor)
+        // An application-owned package is checked as the profile copy just installed, not the shipped one.
+        const ownedCopy = this.applicationOwned(name)
+        const dir = ownedCopy ? join(this.profile.dir, 'node_modules', name)
+          : resolveBundleDir('dsh', name, this.profile.installAnchor, this.profile.dir)
+        const manifest = ownedCopy ? readProfileManifest('dsh', dir) : bundleManifest(name, this.profile.dir, this.profile.installAnchor)
         if (manifest?.dsh?.bundle === undefined) throw new ManagementFailure('not-bundle')
         const compatibility = evaluatePluginCompatibility(manifest, readProfileVersionExemptions(this.profile.dir))
         if (compatibility !== undefined && !compatibility.exempted) throw new ManagementFailure('incompatible-version', [incompatiblePlugin(compatibility)])
@@ -599,6 +614,8 @@ export class PluginManager extends TypertRemoteService {
       result.target = name
       result.stage = 'enable'
       return this.configure(async () => {
+        // The application's own layers already run an application-owned package; its copy changes at the next start.
+        if (this.applicationOwned(name)) return 'restart-required'
         if (options?.enabled !== false) await this.selectBundle(name, true)
         if (Object.hasOwn(before, name)) return 'restart-required'
         await this.refreshPackages()
@@ -643,6 +660,7 @@ export class PluginManager extends TypertRemoteService {
    */
   @Remote
   removeBundle(name: string): Promise<ChangeResult> {
+    if (this.applicationOwned(name)) return this.removeApplicationCopy(name)
     return this.change(async (result) => {
       const installed = await this.configure(async () => {
         const bundle = (await this.listBundles()).find(item => item.name === name)
@@ -670,6 +688,44 @@ export class PluginManager extends TypertRemoteService {
       }
       await this.configure(() => this.refreshPackages())
     }, { stage: 'remove', target: name }, 'remove')
+  }
+
+  /**
+   * Remove the profile's own copy of an application-owned package, returning to the shipped copy from the next start.
+   * The application's layers keep running the package, so nothing is unloaded and no row is deselected first.
+   */
+  private removeApplicationCopy(name: string): Promise<ChangeResult> {
+    return this.change(async (result) => {
+      const held = await this.configure(async () => {
+        const bundle = (await this.listBundles()).find(item => item.name === name)
+        if (bundle === undefined || !bundle.removable) throw new ManagementFailure('not-removable')
+        // A standalone selection is redundant beside the application's layers; it goes with the copy.
+        const manifest = readProfileManifest('dsh', this.profile.dir)
+        const bundles = manifest.dsh?.profile?.bundles ?? []
+        if (bundles.includes(name)) {
+          manifest.dsh = { ...manifest.dsh, profile: { ...manifest.dsh?.profile, bundles: bundles.filter(item => item !== name) } }
+          await saveManifest(this.profile.dir, manifest)
+        }
+        return bundle.installed
+      })
+      if (held) {
+        result.packageResult = await this.runPnpm(['remove', name])
+        if (result.packageResult.exitCode !== 0 || result.packageResult.timedOut === true) throw new Error(result.packageResult.output)
+      }
+      return 'restart-required'
+    }, { stage: 'remove', target: name }, 'remove')
+  }
+
+  /** Whether the launcher declared the package application-owned. */
+  private applicationOwned(name: string): boolean {
+    return (this.profile.installationPlugins ?? []).includes(name)
+  }
+
+  /** Whether a registry spec is an update of an application-owned package: one exact version above the shipped one. */
+  private updatesApplicationCopy(name: string, range: string | undefined): boolean {
+    if (!this.applicationOwned(name) || range === undefined || semver.valid(range) === null) return false
+    const shipped = applicationCopyOf(name, this.profile.installAnchor, this.profile.dir).shipped
+    return shipped === undefined || semver.valid(shipped) === null || semver.gt(range, shipped)
   }
 
   /** The rows a bundle's patch inserts and the existing rows it changes; an unreadable patch throws. */

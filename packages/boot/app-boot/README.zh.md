@@ -68,7 +68,7 @@ profile 导入插件前，DSH 会检查其 `peerDependencies` 中对 `@deepseek-
 
 `sanitizeProfile(binName, profileDir, bundles)` 提供文件恢复，无需加载插件或解析 patch。Desktop 在原生致命错误恢复中调用它。调用前必须停止 profile 并排除并发 profile 写入。它将 profile 的 `cordis.patch.yml` 重命名为带唯一 `.bak-<timestamp>` 后缀的同目录备份，并恢复调用方指定的 bundle 列表，保留已安装包和其他 manifest 字段。时间戳为 Unix 毫秒数；同名备份已存在时追加序号（`-1`、`-2`、……），时间戳保持不变。返回值为备份路径；patch 不存在时返回 `undefined`，缺失的 profile 不会被创建。下次启动的 profile 初始化会重新创建空 patch。home 级 patch 不变。无效 profile JSON 在修改前报错；后续错误向调用方抛出，保留已完成的修改供重试。
 
-应用 launcher 可以通过 `installationPlugins` 声明自己拥有的组件，这些包名必须存在于安装图中。对应条目带有 `applicationOwned: true`：当前 profile 中的 ESM、CommonJS 和包元数据查询优先选择内置组件，而非历史本地副本。刷新和自有 Worker 保留该规则，更改所有权需要重启进程；其它包名继续保留原生本地优先顺序。如果另一应用 bundle 已经插入自有插件，`readProfilePatches` 会在应用用户和 home 覆盖前省略该插件重复的独立 bundle 层。这不写入 profile 文件，也不绕过兼容性检查。VibeDev Next 仅以此方式声明其内置账号组件。
+应用 launcher 可以通过 `installationPlugins` 声明自己拥有的组件，这些包名必须存在于安装图中。内置副本是保底版本。profile 自己声明、并放在自身 `node_modules` 中的副本，只有在版本严格更新且与当前 dsh 兼容时才会取代它。`applicationCopyOf` 作出这一判断，并报告两个版本。保留内置副本的自有条目带有 `applicationOwned: true`：当前 profile 中的 ESM、CommonJS 和包元数据查询优先选择内置组件，而非本地副本。本地副本更新并胜出的条目不带该标记，由原生本地优先顺序选中该副本。该判断每个进程只做一次。刷新和自有 Worker 保留该判断，期间安装的副本在重启后生效。其它包名继续保留原生本地优先顺序。如果另一应用 bundle 已经插入自有插件，`readProfilePatches` 会在应用用户和 home 覆盖前省略该插件重复的独立 bundle 层。这不写入 profile 文件，也不绕过兼容性检查。VibeDev Next 以此方式声明其内置账号组件和生态组件。
 
 ### 预览生效配置
 

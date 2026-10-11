@@ -393,7 +393,9 @@ class ResolutionRouter {
     }
     const localPackageNames = new Set(successor.localPackageNames)
     for (const name of localPackageNames) {
-      if (!this.current.localPackageNames.has(name) && this.current.entries.has(name)) {
+      // An application-owned entry keeps answering ahead of a copy installed meanwhile; that copy waits for a restart.
+      if (!this.current.localPackageNames.has(name) && this.current.entries.has(name)
+        && this.current.entries.get(name)?.applicationOwned !== true) {
         throw new Error(`profile resolution: overriding ${JSON.stringify(name)} locally requires a process restart`)
       }
     }

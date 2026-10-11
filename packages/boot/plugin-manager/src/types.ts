@@ -78,6 +78,24 @@ export interface BundleInfo {
   rows: BundleRowInfo[]
   /** Ids of rows the bundle's patch changes without declaring them: the built-in rows it configures or disables. */
   overrides: string[]
+  /**
+   * Present for a package the application owns (its launcher's `installationPlugins`). The shipped copy is the floor; a
+   * strictly newer copy the profile installed, compatible with the running dsh, replaces it from the next start, and
+   * removing that copy returns to the shipped one. `version` is the selected copy's.
+   */
+  application?: ApplicationCopyInfo
+}
+
+/** The two copies of an application-owned package. */
+export interface ApplicationCopyInfo {
+  /** Version shipped with the application. */
+  shipped?: string
+  /** Version of the profile's own copy, when it holds one. */
+  local?: string
+  /** The copy a process starting now runs. */
+  selected: 'installation' | 'profile'
+  /** Why a present profile copy is not selected. */
+  reason?: 'not-newer' | 'incompatible' | 'unreadable'
 }
 
 /** A registry to install from: an http(s) URL, or null for the one pnpm's own configuration names. */

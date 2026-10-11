@@ -30,6 +30,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DshBundleManifest, DshPackageManifest } from '@deepseek-ai/dsh-package-manifest'
 import { evaluatePluginCompatibility, pluginCompatibilityWarning } from './plugin-compatibility.ts'
 import { readProfileVersionExemptions } from './profile-compatibility.ts'
+import { applicationCopyOf } from './application-copy.ts'
 import { loadOverlayPatches } from './index.ts'
 import { realModuleDirectory } from './profile-resolution/legacy-links.ts'
 
@@ -133,7 +134,10 @@ export interface RuntimeResolutionEntry {
   readonly declarer: string
   /** Whether every profile or only the active profile receives this entry. */
   readonly scope: 'installation' | 'profile'
-  /** Application-owned plugin: its shipped version wins over a historical profile installation. */
+  /**
+   * Application-owned plugin whose shipped copy runs: it wins over the profile's own copy, which is older, incompatible
+   * or absent. A newer compatible profile copy leaves the shipped entry unowned, so the profile copy resolves first.
+   */
   readonly applicationOwned?: boolean
 }
 
@@ -442,8 +446,16 @@ export interface RuntimeResolutionOptions {
   profile?: Profile
   /** Harness home; defaults to {@link resolveDshHome}. */
   home?: string
-  /** Application-owned plugin names; never inferred from third-party profile declarations. */
+  /**
+   * Application-owned plugin names; never inferred from third-party profile declarations. The shipped copy of each
+   * wins over the profile's own copy unless that copy is strictly newer and compatible (see {@link applicationCopyOf}).
+   */
   installationPlugins?: readonly string[]
+  /**
+   * The names in `installationPlugins` already decided to keep their shipped copy, for a refresh: which copy runs is
+   * fixed for the life of the process, so an update installed meanwhile waits for a restart.
+   */
+  ownedPlugins?: readonly string[]
 }
 
 /**
@@ -470,9 +482,13 @@ export async function createRuntimeResolution(
   for (const name of installationPlugins) {
     if (!packageNames.has(name)) throw new Error(`Application-owned plugin ${JSON.stringify(name)} is missing from the installation`)
   }
+  // The shipped copy is the floor; a newer compatible copy the profile installed takes its place.
+  const owned = options.ownedPlugins ?? (profile === undefined ? installationPlugins
+    : installationPlugins.filter(name => applicationCopyOf(name, installAnchor, profile.dir).selected === 'installation'))
   // The Promise return type is the pre-stable API; construction has no asynchronous step.
   return await Promise.resolve(new ProfileRuntimeResolution({
     installAnchor, profileDir: profile?.dir, home, installationPlugins: Object.freeze([...installationPlugins]),
+    ownedPlugins: Object.freeze(installationPlugins.filter(name => owned.includes(name))),
   }, {
     profilesDir,
     profileDir: profile?.dir,
@@ -482,7 +498,7 @@ export async function createRuntimeResolution(
       ...[...packageDirs].map(([name, packageDir]) => Object.freeze({
         name, packageDir, version: versions.get(name),
         declarer: declarers.get(name) as string, scope: 'installation' as const,
-        ...installationPlugins.includes(name) ? { applicationOwned: true } : {},
+        ...owned.includes(name) ? { applicationOwned: true } : {},
       })),
       ...[...profilePackages].map(([name, packageDir]) => Object.freeze({
         name, packageDir, version: profileVersions.get(name),
@@ -498,6 +514,8 @@ interface ResolutionSource {
   home: string
   profileDir: string | undefined
   installationPlugins?: readonly string[]
+  /** The startup decision over `installationPlugins`, kept by every successor. */
+  ownedPlugins?: readonly string[]
 }
 
 /**
@@ -533,9 +551,10 @@ export class ProfileRuntimeResolution implements RuntimeResolution {
    * @returns a new resolution for the latest generation.
    */
   computeLatestResolution(): Promise<ProfileRuntimeResolution> {
-    const { installAnchor, home, profileDir, installationPlugins } = this.#source
+    const { installAnchor, home, profileDir, installationPlugins, ownedPlugins } = this.#source
     return createRuntimeResolution({
       installAnchor, home, installationPlugins: installationPlugins ?? [],
+      ...ownedPlugins === undefined ? {} : { ownedPlugins },
       ...profileDir === undefined ? {} : { profile: loadProfileDirectory('dsh', profileDir, installAnchor) },
     })
   }
