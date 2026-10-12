@@ -113,7 +113,7 @@ describe('installed-update application inputs and builder configuration', () => 
   it.each([
     { DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' },
     { DSH_DESKTOP_UNSIGNED: '1' },
-    { DOWNLOAD_TEST_ORIGIN: 'https://download.deepseek.com' },
+    { DOWNLOAD_TEST_ORIGIN: 'https://download.vibedev.studio' },
   ])('rejects incompatible qualification settings %j', async (override) => {
     await fixture(async (manifest) => {
       await expect(createInstalledUpdateBuilderConfig(manifest, versions[0], { ...environment, ...override })).rejects.toThrow('test deployment')

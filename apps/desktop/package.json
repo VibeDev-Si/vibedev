@@ -40,7 +40,10 @@
     "upload:win:x64": "tsx scripts/upload-target.ts win-x64",
     "upload:latest:mac:arm64": "tsx scripts/upload-target.ts mac-arm64 --latest",
     "upload:latest:mac:x64": "tsx scripts/upload-target.ts mac-x64 --latest",
-    "upload:latest:win:x64": "tsx scripts/upload-target.ts win-x64 --latest"
+    "upload:latest:win:x64": "tsx scripts/upload-target.ts win-x64 --latest",
+    "upload:server:mac:arm64": "tsx scripts/upload-server.ts mac-arm64",
+    "upload:server:mac:x64": "tsx scripts/upload-server.ts mac-x64",
+    "upload:server:win:x64": "tsx scripts/upload-server.ts win-x64"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
