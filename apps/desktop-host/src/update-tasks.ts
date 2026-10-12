@@ -20,6 +20,9 @@ export function hasDesktopActiveTasks(liveAgents: ReturnType<Context['agents']['
       .some(job => job.status === 'running' || job.status === 'stopping'))
 }
 
+/** Request methods that change nothing; an open one never holds up installation. */
+const READS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
 /**
  * Register update admission on the owning Host context.
  * @param ctx - Booted Desktop profile context; disposal removes the request listener.
@@ -31,12 +34,15 @@ export function installDesktopUpdateTaskControl(ctx: Context): (action: 'inspect
   let stopped = false
   ctx.effect(() => () => { stopped = true })
   const pendingRequests = new Set<Promise<void>>()
-  ctx.on('connection/request', async (_request, response, next) => {
+  ctx.on('connection/request', async (request, response, next) => {
     if (locked) {
       response.writeHead(503)
       response.end()
       return
     }
+    // VibeDev fork: only writes are drained, as the lock below says. A read can stay open for a long time (a
+    // plugin's long poll holds one for 25 s), and waiting for it failed the 10 s update deadline.
+    if (READS.has((request as { method?: string }).method ?? 'GET')) { await next(); return }
     const finished = Promise.withResolvers<void>()
     pendingRequests.add(finished.promise)
     try { await next() }
