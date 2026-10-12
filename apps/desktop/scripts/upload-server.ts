@@ -12,11 +12,13 @@ import { execFile } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, posix, resolve } from 'node:path'
+import { basename, join, posix, resolve } from 'node:path'
 import { parseArgs, promisify } from 'node:util'
 import type { DesktopPackageTargetName } from './package-target.ts'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import { createDesktopUploadPlan, type DesktopUploadPlan } from './desktop-upload-plan.ts'
+import { desktopReleaseTag } from './desktop-release-tag.ts'
+import { prerelease } from 'semver'
 
 /** Commands on the download server; injectable so the upload order and checks are testable without one. */
 export interface ServerRemote {
@@ -24,6 +26,22 @@ export interface ServerRemote {
   ssh(command: string): Promise<string>
   /** Copy one local file to an absolute server path. */
   copy(local: string, remotePath: string): Promise<void>
+  /** Have the server download one URL to an absolute path. */
+  fetch(url: string, remotePath: string): Promise<void>
+}
+
+/**
+ * A faster route for the large files: this machine's upload to the server is slow (about 60 KB/s measured,
+ * 80 minutes for an installer), while its upload to GitHub and the server's download from GitHub are fast
+ * (85 s and 57 s). The relay puts a file on a release and answers a short-lived URL the server can fetch
+ * without credentials.
+ */
+export interface ReleaseRelay {
+  /**
+   * Make release asset `name` hold exactly the local file and return a short-lived download URL for it.
+   * An asset that already exists with other bytes is an error: published files are immutable.
+   */
+  publish(local: string, name: string, sha256: string): Promise<string>
 }
 
 /** What one upload did. */
@@ -46,10 +64,12 @@ function quote(value: string): string {
  * @param remote - Server commands.
  * @param root - Absolute directory nginx serves at the plan's origin.
  * @param say - Progress output.
+ * @param relay - Optional route for the binary files (installer, blockmap); the feed always goes over SSH.
  * @returns Uploaded and unchanged keys, and what nginx answers for each key on the server itself.
  */
 export async function uploadDesktopReleaseToServer(
   plan: DesktopUploadPlan, remote: ServerRemote, root: string, say: (line: string) => void = line => process.stdout.write(`${line}\n`),
+  relay?: ReleaseRelay,
 ): Promise<ServerUploadResult> {
   if (!root.startsWith('/') || root.includes('/../') || root.endsWith('/..')) throw new Error('desktop server upload: root must be an absolute path')
   for (const artifact of plan.artifacts) {
@@ -67,7 +87,8 @@ export async function uploadDesktopReleaseToServer(
         local = join(scratch, artifact.filename)
         await writeFile(local, artifact.contents)
       }
-      const hash = createHash('sha512').update(await readFile(local)).digest('hex')
+      const bytes = await readFile(local)
+      const hash = createHash('sha512').update(bytes).digest('hex')
       const target = posix.join(root, artifact.key)
       const existing = (await remote.ssh(`sha512sum -- ${quote(target)} 2>/dev/null || true`)).trim().split(/\s+/u)[0] ?? ''
       if (existing === hash) {
@@ -81,7 +102,13 @@ export async function uploadDesktopReleaseToServer(
       }
       const staged = `${target}.uploading-${randomBytes(6).toString('hex')}`
       await remote.ssh(`mkdir -p -- ${quote(posix.dirname(target))}`)
-      await remote.copy(local, staged)
+      if (relay !== undefined && artifact.contents === undefined && !artifact.channelMetadata) {
+        // Named after the file on disk, so the fixed-name download reuses the versioned installer's asset.
+        const url = await relay.publish(local, basename(artifact.path), createHash('sha256').update(bytes).digest('hex'))
+        await remote.fetch(url, staged)
+      } else {
+        await remote.copy(local, staged)
+      }
       await remote.ssh(`if [ "$(sha512sum < ${quote(staged)} | cut -d' ' -f1)" = ${quote(hash)} ] && chmod 644 -- ${quote(staged)} && mv -f -- ${quote(staged)} ${quote(target)}; then :; else rm -f -- ${quote(staged)}; exit 1; fi`)
       uploaded.push(artifact.key)
       say(`desktop server upload: uploaded ${artifact.key}`)
@@ -120,17 +147,94 @@ export function sshRemote(options: { destination: string; identity: string; know
       await run('scp', [...common, '-P', String(options.port ?? 22), '-q', local, `${options.destination}:${remotePath}`],
         { maxBuffer: 1 << 20, windowsHide: true, timeout: 3 * 60 * 60_000 })
     },
+    async fetch(url, remotePath) {
+      await run('ssh', ['-n', ...common, '-p', String(options.port ?? 22), options.destination,
+        `curl -fsS --retry 3 --retry-delay 2 -o ${quote(remotePath)} ${quote(url)}`],
+      { maxBuffer: 1 << 20, windowsHide: true, timeout: 30 * 60_000 })
+    },
+  }
+}
+
+/** One GitHub REST request with the local `gh` login; the token never leaves this machine. */
+async function github(token: string, url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url.startsWith('https://') ? url : `https://api.github.com${url}`, { ...init,
+    headers: { Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', Accept: 'application/vnd.github+json', ...init.headers } })
+}
+
+interface GitHubAsset { readonly id: number; readonly name: string; readonly digest?: string | null; readonly state: string }
+
+/**
+ * The release `tag` of `repo` as a relay, created on `commit` when absent. The server fetches each asset
+ * through the redirect GitHub answers for an authorized download: a signed URL valid for a few minutes,
+ * so the server holds no GitHub credential.
+ */
+export function githubRelay(options: {
+  repo: string
+  tag: string
+  commit: string
+  name: string
+  prerelease: boolean
+  token: string
+}): ReleaseRelay {
+  let release: Promise<{ id: number; uploadUrl: string }> | undefined
+  const ensureRelease = () => release ??= (async () => {
+    let response = await github(options.token, `/repos/${options.repo}/releases/tags/${encodeURIComponent(options.tag)}`)
+    if (response.status === 404) {
+      response = await github(options.token, `/repos/${options.repo}/releases`, { method: 'POST', body: JSON.stringify({
+        tag_name: options.tag, target_commitish: options.commit, name: options.name, prerelease: options.prerelease,
+        body: `${options.name}. Installer and update files, as published to the VibeDev download server.` }) })
+    }
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 300)
+      // GitHub creates the tag on the packaged commit, so that commit must already be pushed to the repository.
+      throw new Error(`desktop server upload: GitHub release ${options.tag} unavailable (${response.status}${response.status === 422
+        ? `; is commit ${options.commit} pushed to ${options.repo}?` : ''}): ${detail}`)
+    }
+    const body = await response.json() as { id: number; upload_url: string }
+    return { id: body.id, uploadUrl: body.upload_url.replace(/\{.*$/u, '') }
+  })()
+  return {
+    async publish(local, name, sha256) {
+      const { id, uploadUrl } = await ensureRelease()
+      const listed = await github(options.token, `/repos/${options.repo}/releases/${id}/assets?per_page=100`)
+      if (!listed.ok) throw new Error(`desktop server upload: cannot list release assets (${listed.status})`)
+      let asset = (await listed.json() as GitHubAsset[]).find(entry => entry.name === name)
+      if (asset !== undefined && asset.state !== 'uploaded') {
+        throw new Error(`desktop server upload: release asset ${name} is ${asset.state}; delete it and retry`)
+      }
+      if (asset !== undefined && asset.digest !== `sha256:${sha256}`) {
+        throw new Error(`desktop server upload: release asset ${name} already holds different bytes; published files are immutable`)
+      }
+      if (asset === undefined) {
+        const uploaded = await github(options.token, `${uploadUrl}?name=${encodeURIComponent(name)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: await readFile(local) })
+        if (!uploaded.ok) throw new Error(`desktop server upload: uploading ${name} to GitHub failed (${uploaded.status})`)
+        asset = await uploaded.json() as GitHubAsset
+        if (asset.digest !== undefined && asset.digest !== null && asset.digest !== `sha256:${sha256}`) {
+          throw new Error(`desktop server upload: GitHub stored ${name} with a different digest`)
+        }
+      }
+      const redirect = await github(options.token, `/repos/${options.repo}/releases/assets/${asset.id}`,
+        { headers: { Accept: 'application/octet-stream' }, redirect: 'manual' })
+      const location = redirect.headers.get('location')
+      if (redirect.status < 300 || redirect.status >= 400 || location === null) {
+        throw new Error(`desktop server upload: GitHub gave no download link for ${name} (${redirect.status})`)
+      }
+      return location
+    },
   }
 }
 
 /**
- * `upload-server.ts <target> --ssh user@host --identity <key> --known-hosts <file> --root <dir> [--latest]`.
+ * `upload-server.ts <target> --ssh user@host --identity <key> --known-hosts <file> --root <dir> [--latest] [--via-github owner/repo]`.
+ * `--via-github` sends the installer and blockmap through release `desktop-v<version>` of that repository (created on the
+ * packaged commit; a build with uncommitted changes is refused); the feed still goes over SSH, last.
  * Release settings (deployment, origin) come from the target's dotenv file, as for the COS upload.
  */
 export async function uploadDesktopTargetToServer(args: string[]): Promise<void> {
   const { positionals, values } = parseArgs({ args, allowPositionals: true, options: {
     latest: { type: 'boolean' }, ssh: { type: 'string' }, identity: { type: 'string' },
-    'known-hosts': { type: 'string' }, root: { type: 'string' }, port: { type: 'string' },
+    'known-hosts': { type: 'string' }, root: { type: 'string' }, port: { type: 'string' }, 'via-github': { type: 'string' },
   } })
   const target = positionals[0] as DesktopPackageTargetName | undefined
   if (positionals.length !== 1 || !['mac-arm64', 'mac-x64', 'win-x64'].includes(target ?? '')) {
@@ -146,7 +250,18 @@ export async function uploadDesktopTargetToServer(args: string[]): Promise<void>
   process.stdout.write(`desktop server upload: ${plan.target} ${plan.version} -> ${plan.publicUrl}\n`)
   const remote = sshRemote({ destination: values.ssh!, identity: resolve(values.identity!), knownHosts: resolve(values['known-hosts']!),
     ...values.port === undefined ? {} : { port: Number(values.port) } })
-  const result = await uploadDesktopReleaseToServer(plan, remote, values.root!)
+  let relay: ReleaseRelay | undefined
+  const repo = values['via-github']
+  if (repo !== undefined) {
+    if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/u.test(repo)) throw new Error('desktop server upload: --via-github expects owner/repo')
+    if (plan.commit === undefined || plan.dirty !== false) {
+      throw new Error('desktop server upload: --via-github needs a build of a committed tree, so its release tag names what users receive')
+    }
+    const { stdout } = await promisify(execFile)('gh', ['auth', 'token'], { windowsHide: true })
+    relay = githubRelay({ repo, tag: desktopReleaseTag(plan.version), commit: plan.commit, name: `VibeDev ${plan.version}`,
+      prerelease: prerelease(plan.version) !== null, token: stdout.trim() })
+  }
+  const result = await uploadDesktopReleaseToServer(plan, remote, values.root!, undefined, relay)
   process.stdout.write(`desktop server upload: done (${result.uploaded.length} uploaded, ${result.unchanged.length} unchanged; nginx serves all)\n`)
 }
 

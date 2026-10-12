@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
-import { uploadDesktopReleaseToServer, type ServerRemote } from '../scripts/upload-server.ts'
+import { uploadDesktopReleaseToServer, type ReleaseRelay, type ServerRemote } from '../scripts/upload-server.ts'
 
 const ROOT = '/data/vibedev-download/public'
 const dirs: string[] = []
@@ -13,7 +13,7 @@ afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: tru
 const sha512 = (body: string | Buffer) => createHash('sha512').update(body).digest('hex')
 
 /** A server whose files live in a map; every command is recorded, and copies and renames really move bytes. */
-function fakeServer(initial: Record<string, string> = {}) {
+function fakeServer(initial: Record<string, string> = {}, relayed: Map<string, string> = new Map()) {
   const files = new Map(Object.entries(initial))
   const staged = new Map<string, string>()
   const log: string[] = []
@@ -34,6 +34,12 @@ function fakeServer(initial: Record<string, string> = {}) {
       const read = /--resolve '([^:]+):443:127\.0\.0\.1'.* 'https:\/\/[^/]+\/([^']+)'$/u.exec(command)
       if (read) return files.has(`${ROOT}/${read[2]}`) ? `200 ${Buffer.byteLength(files.get(`${ROOT}/${read[2]}`)!)}` : '404 0'
       throw new Error(`unexpected command ${command}`)
+    },
+    async fetch(url, remotePath) {
+      log.push(`fetch ${remotePath}`)
+      const body = relayed.get(url)
+      if (body === undefined) throw new Error(`no such url ${url}`)
+      staged.set(remotePath, body)
     },
     async copy(local, remotePath) {
       log.push(`copy ${remotePath}`)
@@ -107,5 +113,63 @@ describe('upload to the VibeDev download server', () => {
     const bad = plan()
     ;(bad.artifacts[0] as { key: string }).key = 'dsh-desk/../../etc/x'
     await expect(uploadDesktopReleaseToServer(bad, fakeServer().remote, ROOT, () => {})).rejects.toThrow(/key/u)
+  })
+
+  describe('through a GitHub release', () => {
+    /** A release whose assets live in a map; the server fetches them by their signed URL. */
+    function fakeRelay(existing: Record<string, string> = {}) {
+      const assets = new Map(Object.entries(existing))
+      const urls = new Map<string, string>()
+      const published: string[] = []
+      const relay: ReleaseRelay = {
+        async publish(local, name, sha256) {
+          const { readFileSync } = await import('node:fs')
+          const body = readFileSync(local, 'utf8')
+          const current = assets.get(name)
+          if (current !== undefined && createHash('sha256').update(current).digest('hex') !== sha256) {
+            throw new Error(`desktop server upload: release asset ${name} already holds different bytes; published files are immutable`)
+          }
+          if (current === undefined) { assets.set(name, body); published.push(name) }
+          const url = `https://release-assets.example/${name}?sig=1`
+          urls.set(url, assets.get(name)!)
+          return url
+        },
+      }
+      return { relay, urls, assets, published }
+    }
+
+    it('sends the large files through the release, the feed over SSH and last', async () => {
+      const github = fakeRelay()
+      const server = fakeServer({}, github.urls)
+      const result = await uploadDesktopReleaseToServer(plan(), server.remote, ROOT, () => {}, github.relay)
+      expect(github.published).toEqual(['vibedev-1.2.3-win-x64.exe', 'vibedev-1.2.3-win-x64.exe.blockmap'])
+      expect(server.log.filter(line => line.startsWith('fetch ')).length).toBe(2)
+      expect(server.log.filter(line => line.startsWith('copy ')).map(line => line.includes('nightly.yml'))).toEqual([true])
+      expect(server.files.get(`${ROOT}/dsh-desk/bin/win-x64/vibedev-1.2.3-win-x64.exe`)).toBe('installer bytes')
+      expect(server.log.filter(line => line.includes('mv -f')).at(-1)).toContain('nightly.yml')
+      expect(result.readback.every(entry => entry.ok)).toBe(true)
+    })
+
+    it('reuses an identical release asset and stops on a different one before the feed moves', async () => {
+      const same = fakeRelay({ 'vibedev-1.2.3-win-x64.exe': 'installer bytes' })
+      await uploadDesktopReleaseToServer(plan(), fakeServer({}, same.urls).remote, ROOT, () => {}, same.relay)
+      expect(same.published).toEqual(['vibedev-1.2.3-win-x64.exe.blockmap'])
+      const other = fakeRelay({ 'vibedev-1.2.3-win-x64.exe': 'other bytes' })
+      const server = fakeServer({}, other.urls)
+      await expect(uploadDesktopReleaseToServer(plan(), server.remote, ROOT, () => {}, other.relay)).rejects.toThrow(/immutable/u)
+      expect(server.files.has(`${ROOT}/dsh-desk/feeds/win-x64/nightly.yml`)).toBe(false)
+    })
+
+    it('a corrupted transfer never becomes public', async () => {
+      const github = fakeRelay()
+      const server = fakeServer({}, github.urls)
+      const corrupt = { ...github.relay, async publish(local: string, name: string, sha256: string) {
+        const url = await github.relay.publish(local, name, sha256)
+        github.urls.set(url, 'truncated')
+        return url
+      } }
+      await expect(uploadDesktopReleaseToServer(plan(), server.remote, ROOT, () => {}, corrupt)).rejects.toThrow(/checksum/u)
+      expect([...server.files.keys()]).toEqual([])
+    })
   })
 })
