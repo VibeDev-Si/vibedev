@@ -96,4 +96,23 @@ describe('Windows update publisher', () => {
       expect(await manager.computedPublisherName.value).toEqual(['CN=Publisher,O=Company,C=CN'])
     })
   })
+
+  // VibeDev fork: until a certificate exists, Windows releases ship unsigned but keep their update feed.
+  it('signing off: a release keeps its feed and release name, without a signer or publisher check', async () => {
+    const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: 'com.example.publisher-test',
+      DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
+      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      DSH_DESKTOP_WINDOWS_SIGNING: 'off',
+    }, 'win32', 'x64')
+    expect(config.publish).toEqual([{ provider: 'generic', url: 'https://download.vibedev.studio/dsh-desk/feeds/win-x64/', channel: 'nightly' }])
+    expect(config.artifactName).toBe('vibedev-${version}-${os}-${arch}.${ext}')
+    expect(config.win.forceCodeSigning).toBe(false)
+    expect(config.win.signtoolOptions.sign).toBeUndefined()
+    // No publisher name: electron-updater then checks the download against the feed's SHA-512 only.
+    expect(config.win.signtoolOptions.publisherName).toBeUndefined()
+    expect(config.directories.output).not.toMatch(/unsigned/u)
+  })
 })

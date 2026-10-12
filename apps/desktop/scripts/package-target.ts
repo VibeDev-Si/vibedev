@@ -18,7 +18,7 @@ import { withMacOSSigningKeychain } from './macos-signing-keychain.mjs'
 import { macOSDownloadEnvironment, resolveMacOSPackageSettings } from './macos-package-settings.mjs'
 import { packagingErrorDetails, packagingStep } from './packaging-step.mjs'
 import { notarizeMacOS } from './notarize-macos.mjs'
-import { resolveMacOSNotarizationEnvironment } from './desktop-release-environment.mjs'
+import { resolveMacOSNotarizationEnvironment, windowsSigningDisabled } from './desktop-release-environment.mjs'
 import { DESKTOP_BUILD_VERSION_ENV, resolveDesktopBuildVersion, validateDesktopBuildVersion } from './desktop-build-version.mjs'
 import { suggestDesktopBuildVersion } from './desktop-build-version-discovery.ts'
 import { desktopBuildCommitEnvironment, readDesktopBuildCommit, resolveDesktopBuildCommit } from './desktop-build-commit.mjs'
@@ -423,10 +423,13 @@ export async function packageTarget(
   }
   const downloadEnv = macOSDownloadEnvironment(targetEnv, mac?.downloadProxy)
   const electronBuilderEnv = desktopElectronBuilderEnvironment(downloadEnv, invocation.unsigned)
+  // VibeDev fork: a Windows release with DSH_DESKTOP_WINDOWS_SIGNING=off keeps the release flow without any signing step.
+  const windowsSigningOff = target.platform === 'win32' && !invocation.unsigned && windowsSigningDisabled(environment)
+  if (windowsSigningOff) electronBuilderEnv.DSH_DESKTOP_WINDOWS_SIGNING = 'off'
   for (const name of WINDOWS_SIGNING_ENV_NAMES) {
-    if (!invocation.unsigned && environment[name] !== undefined) electronBuilderEnv[name] = environment[name]
+    if (!invocation.unsigned && !windowsSigningOff && environment[name] !== undefined) electronBuilderEnv[name] = environment[name]
   }
-  const signPrimaryRuntime = target.platform === 'win32' && !invocation.unsigned && !invocation.prepareOnly
+  const signPrimaryRuntime = target.platform === 'win32' && !invocation.unsigned && !windowsSigningOff && !invocation.prepareOnly
   const signedStage = async (stage: string, operation: () => Promise<void>): Promise<void> => {
     if (!signPrimaryRuntime) return operation()
     if (run === undefined) throw new Error('desktop package: signed Windows packaging requires a supervised run')
@@ -502,7 +505,8 @@ export async function packageTarget(
       () => notarizeMacOS({ appPath, ...resolveMacOSNotarizationEnvironment(environment) }), undefined, undefined, proxyEvent)
   } else {
     await signedStage('artifacts', () => execute(desktopElectronBuilderArguments(target, invocation.directory), electronBuilderEnv))
-    await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts', ...(invocation.unsigned ? ['--unsigned'] : [])], targetEnv)
+    await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts',
+      ...(invocation.unsigned ? ['--unsigned'] : windowsSigningOff ? ['--skip-signature'] : [])], targetEnv)
   }
   if (!invocation.directory && !invocation.unsigned) writeReleaseRecord(target, electronBuilderEnv, buildPaths.artifacts)
   if (journal) recordPackagingEvent(journal, { type: 'artifacts', directory: invocation.unsigned ? buildPaths.unsignedArtifacts : buildPaths.artifacts })

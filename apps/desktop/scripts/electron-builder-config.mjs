@@ -10,6 +10,7 @@ import {
   resolveDesktopAppId,
   resolveMacOSNotarizationEnvironment,
   resolveMacOSSigningEnvironment,
+  windowsSigningDisabled,
 } from './desktop-release-environment.mjs'
 import { notarizeMacOSDiskImageArtifact } from './notarize-macos-disk-images.mjs'
 import { verifyMacOSSignatureAfterSign } from './verify-macos-signature.mjs'
@@ -70,7 +71,9 @@ export function createElectronBuilderConfig(
   let windowsCode = []
   const unpack = ['**/*.{node,dylib,dll,so,exe}', '**/*.so.*', '**/spawn-helper', '**/@vscode/ripgrep-*/bin/rg',
     `**/node_modules/@deepseek-ai/libreoffice-kit-${resolvedPlatform}-${resolvedArch}/**/*`]
-  const windowsSigner = packagesWindows && !unsigned
+  // VibeDev fork: DSH_DESKTOP_WINDOWS_SIGNING=off packages the release without a signer (see desktop-release-environment.mjs).
+  const windowsSigningOff = packagesWindows && !unsigned && windowsSigningDisabled(env)
+  const windowsSigner = packagesWindows && !unsigned && !windowsSigningOff
     ? createWindowsTokenSigner({
         certificateFile: env.DSH_DESKTOP_WINDOWS_CER_FILE,
         signTool: env.DSH_DESKTOP_WINDOWS_SIGNTOOL,
@@ -200,8 +203,8 @@ export function createElectronBuilderConfig(
       // release, and a rewritten one for installed-update qualification.
       await verifyDesktopRuntime(buildPaths.dsh,
         preparedRuntimeVersion ?? productVersion, { platform: resolvedPlatform, arch: resolvedArch })
-      // Unsigned Windows builds skip electron-builder's afterSign hook.
-      if (packagesWindows && unsigned) await verifyWindowsAsarUnpack(buildPaths.dsh, resourcesDir, windowsCode)
+      // Builds without a signer (unsigned, or signing off) skip electron-builder's afterSign hook.
+      if (packagesWindows && windowsSigner === undefined) await verifyWindowsAsarUnpack(buildPaths.dsh, resourcesDir, windowsCode)
     },
     afterSign: async context => {
       if (windowsSigner !== undefined) {
@@ -230,7 +233,7 @@ export function createElectronBuilderConfig(
     },
     win: {
       icon: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)),
-      forceCodeSigning: !unsigned,
+      forceCodeSigning: !unsigned && !windowsSigningOff,
       signtoolOptions: {
         sign: windowsSigner,
         publisherName: windowsSigner === undefined ? undefined : resolveWindowsUpdatePublisher(env.DSH_DESKTOP_WINDOWS_CER_FILE),

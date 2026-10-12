@@ -158,6 +158,19 @@ describe('Desktop local packaging configuration', () => {
     }).not.toThrow()
   })
 
+  // VibeDev fork: a Windows release without a code-signing certificate, still with its update feed.
+  it('accepts a Windows release with signing off, without certificate settings, and rejects any other value', async () => {
+    expect(() => { validateDesktopPackageEnvironment({ ...RELEASE, DSH_DESKTOP_WINDOWS_SIGNING: 'off' }, WINDOWS) }).not.toThrow()
+    expect(() => { validateDesktopPackageEnvironment({ ...RELEASE, DSH_DESKTOP_WINDOWS_SIGNING: 'no' }, WINDOWS) })
+      .toThrow(/DSH_DESKTOP_WINDOWS_SIGNING/u)
+    // The update feed is still required: signing off is a release, not a local test build.
+    expect(() => { validateDesktopPackageEnvironment({ ...POLICY, DSH_DESKTOP_APP_ID: RELEASE.DSH_DESKTOP_APP_ID,
+      DSH_DESKTOP_WINDOWS_SIGNING: 'off' }, WINDOWS) }).toThrow(/DOWNLOAD_TEST_ORIGIN/u)
+    await withDirectory(async (directory) => {
+      await writeFile(join(directory, '.env.windows'), 'DSH_DESKTOP_APP_ID=com.example.desktop\nDSH_DESKTOP_WINDOWS_SIGNING=off\n')
+      expect(loadDesktopPackageEnvironment('win32', {}, directory).DSH_DESKTOP_WINDOWS_SIGNING).toBe('off')
+    })
+  })
   it('accepts unsigned macOS configuration without Apple or update policy settings while keeping release validation', () => {
     const local = localMacOSPackageEnvironment({})
     expect(() => { validateDesktopPackageEnvironment(local, MACOS, { unsigned: true }) }).not.toThrow()

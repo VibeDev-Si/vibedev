@@ -119,3 +119,17 @@ export function resolveMacOSNotarizationEnvironment(env) {
 
   throw new Error('desktop release environment: macOS packaging requires APPLE_API_KEY, APPLE_API_KEY_ID, and APPLE_API_ISSUER; APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID; or APPLE_KEYCHAIN_PROFILE')
 }
+
+/**
+ * VibeDev fork: `DSH_DESKTOP_WINDOWS_SIGNING=off` packages a Windows release (update feed, release name,
+ * completion record) without Authenticode signing, while no code-signing certificate exists. Remove the
+ * setting once one does; nothing else changes.
+ * @param {NodeJS.ProcessEnv} env - Packaging environment.
+ * @returns {boolean} Whether Windows signing is turned off.
+ */
+export function windowsSigningDisabled(env) {
+  const value = env.DSH_DESKTOP_WINDOWS_SIGNING
+  if (value === undefined || value === '') return false
+  if (value === 'off') return true
+  throw new Error('desktop release environment: DSH_DESKTOP_WINDOWS_SIGNING must be "off" or absent')
+}

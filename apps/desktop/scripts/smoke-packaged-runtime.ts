@@ -9,7 +9,9 @@ import { resolveDesktopPackageTarget } from './package-target.ts'
 import { verifyAsarDependencies } from './verify-asar-dependencies.ts'
 
 const paths = resolveDesktopTargetBuildPaths()
-const { values } = parseArgs({ options: { unsigned: { type: 'boolean', default: false } }, allowPositionals: false })
+// --skip-signature (VibeDev fork): a release packaged with DSH_DESKTOP_WINDOWS_SIGNING=off has no Authenticode signature to check.
+const { values } = parseArgs({ options: { unsigned: { type: 'boolean', default: false }, 'skip-signature': { type: 'boolean', default: false } },
+  allowPositionals: false })
 const target = resolveDesktopBuildTarget()
 const windows = target === 'win-x64'
 const artifacts = values.unsigned ? paths.unsignedArtifacts : paths.artifacts
@@ -19,6 +21,6 @@ const resources = join(application, windows ? 'resources' : 'Resources')
 const executable = windows ? join(application, 'VibeDev.exe') : join(application, 'MacOS', 'VibeDev')
 const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
   resolveDesktopPackageTarget(target))
-if (windows && !values.unsigned) await verifyWindowsCode(application)
+if (windows && !values.unsigned && !values['skip-signature']) await verifyWindowsCode(application)
 await verifyAsarDependencies(join(resources, 'app.asar'))
 await smokePreparedRuntime(join(resources, 'app.asar', 'dsh'), executable, join(resources, 'runtime'), descriptor)

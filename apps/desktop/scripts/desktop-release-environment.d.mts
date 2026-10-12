@@ -69,3 +69,10 @@ export function resolveMacOSSigningEnvironment(env: NodeJS.ProcessEnv): MacOSSig
  * @returns Notary credentials without the submitted artifact path.
  */
 export function resolveMacOSNotarizationEnvironment(env: NodeJS.ProcessEnv): MacOSNotarizationEnvironment
+
+/**
+ * VibeDev fork: whether `DSH_DESKTOP_WINDOWS_SIGNING=off` packages a Windows release without Authenticode signing.
+ * @param env - Packaging environment.
+ * @returns Whether Windows signing is turned off.
+ */
+export function windowsSigningDisabled(env: NodeJS.ProcessEnv): boolean
