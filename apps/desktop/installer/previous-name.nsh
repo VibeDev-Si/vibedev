@@ -37,8 +37,9 @@ Function InstallerAdoptPreviousName
   Pop $0
 FunctionEnd
 
-; The earlier VibeDev Studio's uninstall entry is left behind when its folder was deleted by hand;
-; with its folder gone it can only confuse the Apps list. Removed only in that case.
+; The earlier VibeDev Studio's uninstall entry is left behind when its folder was deleted by hand. It names
+; Programs\VibeDev, the folder this app installs into, so once installed its Uninstall button would run THIS
+; app's uninstaller. Removed only when that folder is absent, so it must run before installing (customInit).
 Function InstallerForgetOrphanStudio
   Push $0
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VibeDev-default" InstallLocation
