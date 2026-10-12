@@ -23,8 +23,9 @@ Function un.CleanData
   ; Only a DSH_HOME published as a Windows environment variable is visible here.
   ReadEnvStr $UnHome DSH_HOME
   ClearErrors
-  StrCpy $UnTarget "$APPDATA\${PRODUCT_FILENAME}"
-  Call un.RemoveData
+  ; VibeDev fork: no "$APPDATA\${PRODUCT_FILENAME}". The app's user data follows the package name
+  ; below; "%APPDATA%\VibeDev" belongs to the earlier VibeDev Studio (its data and backups), which
+  ; used the same product name, and must survive uninstalling this app.
   !ifdef APP_PACKAGE_NAME
     ; Electron derives user data from the package name; a scoped name nests it one directory deeper.
     StrCpy $UnTarget "$APPDATA\${APP_PACKAGE_NAME}"

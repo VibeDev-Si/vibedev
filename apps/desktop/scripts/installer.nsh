@@ -23,6 +23,7 @@ ManifestDPIAware true
     !include "${INSTALLER_SOURCE_DIR}\theme.nsh"
     !include "${INSTALLER_SOURCE_DIR}\pages.nsh"
     !include "${INSTALLER_SOURCE_DIR}\lifecycle.nsh"
+    !include "${INSTALLER_SOURCE_DIR}\previous-name.nsh"
     Function InstallerCheckAppRunning
       !insertmacro customCheckAppRunning
     FunctionEnd
@@ -66,6 +67,8 @@ ManifestDPIAware true
   File "/oname=$PLUGINSDIR\brand-dark.bmp" "${INSTALLER_BUILD_DIR}\brand-dark.bmp"
   File "/oname=$PLUGINSDIR\brand-dark-2x.bmp" "${INSTALLER_BUILD_DIR}\brand-dark-2x.bmp"
   File "/oname=$PLUGINSDIR\window-frame.dll" "${INSTALLER_BUILD_DIR}\window-frame.dll"
+  ; An installation under the previous name moves to the folder of the current name.
+  Call InstallerAdoptPreviousName
   Call InstallerCheckAppRunning
   ${If} ${Silent}
     Call InstallerPreflight
@@ -209,6 +212,7 @@ ManifestDPIAware true
   !insertmacro dshFinishDirectories
   ; Standard uninstall-entry metadata read by inventory tools; the upstream template records it only under its private key.
   WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
+  Call InstallerForgetOrphanStudio
   ${If} $0 == 1
     SetErrors
   ${Else}

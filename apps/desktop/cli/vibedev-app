@@ -14,4 +14,4 @@ resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
 # VibeDev fork: the Harness home defaults to ~/.vibedev-app, as in the Desktop app.
 : "${DSH_HOME:=$HOME/.vibedev-app}"
 export DSH_HOME
-ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/VibeDev Next" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
+ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/VibeDev" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"

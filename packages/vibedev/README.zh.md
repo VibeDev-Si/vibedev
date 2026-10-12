@@ -9,7 +9,7 @@ kind: "package-group"
 
 ## 概述
 
-默认 bundle 在 Harness 运行时之上组合 VibeDev Next。当前双账号组合从 npm 精确版本的外部插件获得 VibeDev 账号、模型、媒体与搜索能力；此前的账号与网关提供方已随 `dsh-v0.2.1-alpha.2` 合并删除。
+默认 bundle 在 Harness 运行时之上组合 VibeDev。当前双账号组合从 npm 精确版本的外部插件获得 VibeDev 账号、模型、媒体与搜索能力；此前的账号与网关提供方已随 `dsh-v0.2.1-alpha.2` 合并删除。
 
 ## 目录
 

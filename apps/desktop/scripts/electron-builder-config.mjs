@@ -96,9 +96,10 @@ export function createElectronBuilderConfig(
   const productVersion = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version
   const buildVersion = resolveDesktopBuildVersion(env, productVersion)
   const packaged = resolveDesktopBuildCommit(env)
-  // VibeDev fork: product identity. The install name is "VibeDev Next" while the
-  // current VibeDev (Studio) is still installed under "VibeDev"; the package name
-  // gives Electron its own userData and updater cache. See FORK-DELTA.md.
+  // VibeDev fork: product identity. The install name is "VibeDev" (it was "VibeDev Next" while
+  // VibeDev Studio still installed under "VibeDev"; the same appId upgrades that install, and the
+  // installer moves it to the new folder). The package name gives Electron its own userData and
+  // updater cache, independent of the install name. See FORK-DELTA.md.
   return {
     appId,
     protocols: [{ name: 'VibeDev', schemes: ['vibedev-app'] }],
@@ -109,9 +110,9 @@ export function createElectronBuilderConfig(
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    productName: 'VibeDev Next',
+    productName: 'VibeDev',
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `vibedev-next-\${version}-\${os}-\${arch}${unsigned ? '-unsigned' : ''}.\${ext}`,
+    artifactName: `vibedev-\${version}-\${os}-\${arch}${unsigned ? '-unsigned' : ''}.\${ext}`,
     directories: { output: unsigned ? buildPaths.unsignedArtifacts : buildPaths.artifacts },
     asar: true,
     electronDist: buildPaths.electron,

@@ -37,6 +37,8 @@ LangString INSTALLER_PATH_WRITABLE ${LANG_ENGLISH} "This location is not writabl
 LangString INSTALLER_PATH_WRITABLE ${LANG_SIMPCHINESE} "无法写入此位置。请选择当前用户可写入的文件夹；安装程序不会申请管理员权限。"
 LangString INSTALLER_DISK_SPACE ${LANG_ENGLISH} "There is not enough free disk space. Choose another location."
 LangString INSTALLER_DISK_SPACE ${LANG_SIMPCHINESE} "此磁盘的可用空间不足，请选择其他位置。"
+LangString INSTALLER_LEGACY_STUDIO ${LANG_ENGLISH} "An earlier VibeDev (VibeDev Studio) is installed in this folder. Uninstall it from Windows Settings > Apps first, or choose another folder on the next page."
+LangString INSTALLER_LEGACY_STUDIO ${LANG_SIMPCHINESE} "此文件夹里安装着旧版 VibeDev（VibeDev Studio）。请先在 Windows「设置 → 应用」中卸载旧版，或在下一步选择其他安装位置。"
 LangString INSTALLER_PER_USER ${LANG_ENGLISH} "This installer supports the current user only. Uninstall the existing all-users installation first."
 LangString INSTALLER_PER_USER ${LANG_SIMPCHINESE} "此安装程序仅支持当前用户。请先卸载已有的所有用户安装版本。"
 LangString INSTALLER_EXTRACT_FAILED ${LANG_ENGLISH} "The application files could not be extracted."

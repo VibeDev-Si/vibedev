@@ -11,7 +11,7 @@ description: "VibeDev 默认使用美国 API，需重新登录，不再恢复历
 
 VibeDev 默认使用 `https://api.vibedev.studio`。账号插件为每个规范化网关 origin 使用独立凭据键和状态目录。历史未标注的登录文件、凭据记录和媒体任务保留在磁盘上，但不导入或恢复；旧视频、音频和上传任务不重新提交。DeepSeek 账号、本地聊天、工作区和历史媒体 URL 不变。可选的 `us-candidate.patch.yml` 导出已移除。
 
-VibeDev Next 的欢迎页仅由 VibeDev 主账号控制。退出 DeepSeek 或其会话过期时保持工作区打开；退出 VibeDev 时回到欢迎页，即使 DeepSeek 仍已登录或其它模型提供商的密钥仍已配置。在官方 DSH 中将插件作为副账号安装时，仍保留官方 DeepSeek 的进入应用逻辑。
+VibeDev 的欢迎页仅由 VibeDev 主账号控制。退出 DeepSeek 或其会话过期时保持工作区打开；退出 VibeDev 时回到欢迎页，即使 DeepSeek 仍已登录或其它模型提供商的密钥仍已配置。在官方 DSH 中将插件作为副账号安装时，仍保留官方 DeepSeek 的进入应用逻辑。
 
 即使 profile 中还保留旧的独立安装副本，桌面 Host 也使用安装包内置的 VibeDev 组件。重复的独立 bundle 不再覆盖应用的主账号配置。这是运行时选择规则，不删除或改写已安装文件、manifest、锁文件、登录记录及其它插件。用户明确配置和禁用的选择仍生效。
 

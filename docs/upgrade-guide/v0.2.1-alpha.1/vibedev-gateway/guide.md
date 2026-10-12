@@ -11,7 +11,7 @@ English | [中文](guide.zh.md)
 
 VibeDev defaults to `https://api.vibedev.studio`. The account plugin uses a separate credential key and state directory for every canonical gateway origin. Historical unmarked login files, credential records and media tasks remain on disk but are not imported or restored. Old video, audio and upload tasks are not resubmitted. DeepSeek accounts, local chats, workspaces and historical media URLs are unchanged. The optional `us-candidate.patch.yml` export is removed.
 
-In VibeDev Next, only the VibeDev primary account controls the welcome page. Signing out of DeepSeek or its session expiring keeps the workspace open; signing out of VibeDev returns to its welcome page even while DeepSeek or another provider key remains configured. In official DSH, installing the plugin as a secondary account retains the official DeepSeek entry policy.
+In VibeDev, only the VibeDev primary account controls the welcome page. Signing out of DeepSeek or its session expiring keeps the workspace open; signing out of VibeDev returns to its welcome page even while DeepSeek or another provider key remains configured. In official DSH, installing the plugin as a secondary account retains the official DeepSeek entry policy.
 
 The desktop Host uses its shipped VibeDev component even if an older standalone copy remains in the profile. Its redundant standalone bundle no longer replaces the application's primary-account configuration. This is a runtime selection rule: no installed files, manifest, lockfile, login records, or unrelated plugins are removed or rewritten. Explicit user configuration and disable choices still apply.
 

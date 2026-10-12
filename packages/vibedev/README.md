@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The defaults bundles compose VibeDev Next over the Harness runtime. Current dual-account composition gets its VibeDev account, models, media and search from the npm-pinned external plugin; the earlier account and gateway providers were removed with the `dsh-v0.2.1-alpha.2` merge.
+The defaults bundles compose VibeDev over the Harness runtime. Current dual-account composition gets its VibeDev account, models, media and search from the npm-pinned external plugin; the earlier account and gateway providers were removed with the `dsh-v0.2.1-alpha.2` merge.
 
 ## Table of Contents
 

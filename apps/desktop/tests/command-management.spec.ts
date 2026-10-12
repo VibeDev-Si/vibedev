@@ -24,7 +24,7 @@ it.each([
   ['darwin', 'en-US', en], ['darwin', 'zh-CN', zh],
   ['win32', 'en-US', en], ['win32', 'zh-CN', zh],
 ] as const)('records command status on %s in %s', async (platform, language, messages) => {
-  const destination = platform === 'darwin' ? '/usr/local/bin/vibedev-app' : 'C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd'
+  const destination = platform === 'darwin' ? '/usr/local/bin/vibedev-app' : 'C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd'
   const other = platform === 'darwin' ? '/opt/homebrew/bin/vibedev-app' : 'C:\\Program Files\\nodejs\\vibedev-app.cmd'
   const states = [
     { managed: false, available: false, destination },

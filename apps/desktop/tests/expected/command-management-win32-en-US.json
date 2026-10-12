@@ -4,7 +4,7 @@
       "type": "info",
       "title": "Manage vibedev-app Command",
       "message": "Add the Desktop command to your terminal.",
-      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "Install",
         "Cancel"
@@ -16,7 +16,7 @@
       "type": "info",
       "title": "Manage vibedev-app Command",
       "message": "The Desktop command is installed.",
-      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nCurrent vibedev-app command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nCurrent vibedev-app command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "Close",
         "Repair",
@@ -29,7 +29,7 @@
       "type": "info",
       "title": "Manage vibedev-app Command",
       "message": "The Desktop command needs repair.",
-      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "Close",
         "Repair",
@@ -42,7 +42,7 @@
       "type": "warning",
       "title": "Manage vibedev-app Command",
       "message": "The Desktop command is installed.",
-      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nCurrent vibedev-app command: C:\\Program Files\\nodejs\\vibedev-app.cmd\n\nAnother vibedev-app takes precedence. Remove or reorder that installation to use the Desktop command by default. You can also run the Desktop command by its full path.",
+      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nCurrent vibedev-app command: C:\\Program Files\\nodejs\\vibedev-app.cmd\n\nAnother vibedev-app takes precedence. Remove or reorder that installation to use the Desktop command by default. You can also run the Desktop command by its full path.",
       "buttons": [
         "Close",
         "Repair",
@@ -55,7 +55,7 @@
       "type": "info",
       "title": "Manage vibedev-app Command",
       "message": "Add the Desktop command to your terminal.",
-      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nYour shell command could not be verified. An alias or another vibedev-app installation may take precedence.",
+      "detail": "Desktop command: C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\nYour shell command could not be verified. An alias or another vibedev-app installation may take precedence.",
       "buttons": [
         "Install",
         "Cancel"

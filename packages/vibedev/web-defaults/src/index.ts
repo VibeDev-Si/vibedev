@@ -6,7 +6,7 @@
  * dsh-v0.2.1-alpha.2 replaced the `webRuntime` service with `webStartup`.
  * Plugins written for earlier releases inject `webRuntime` for the trusted
  * hosts and never load without it (the media viewer, Better Sidebar, the
- * VibeDev Ecosystem before 0.1.10). VibeDev Next keeps them working: this
+ * VibeDev Ecosystem before 0.1.10). VibeDev keeps them working: this
  * plugin provides `webRuntime` exactly as dsh-v0.2.1-alpha.1 did, from the
  * bind host and the `--trusted-host` values the new service carries.
  *

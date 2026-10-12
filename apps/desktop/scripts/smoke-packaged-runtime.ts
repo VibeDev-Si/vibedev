@@ -14,9 +14,9 @@ const target = resolveDesktopBuildTarget()
 const windows = target === 'win-x64'
 const artifacts = values.unsigned ? paths.unsignedArtifacts : paths.artifacts
 const application = windows ? join(artifacts, 'win-unpacked')
-  : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'VibeDev Next.app', 'Contents')
+  : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'VibeDev.app', 'Contents')
 const resources = join(application, windows ? 'resources' : 'Resources')
-const executable = windows ? join(application, 'VibeDev Next.exe') : join(application, 'MacOS', 'VibeDev Next')
+const executable = windows ? join(application, 'VibeDev.exe') : join(application, 'MacOS', 'VibeDev')
 const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
   resolveDesktopPackageTarget(target))
 if (windows && !values.unsigned) await verifyWindowsCode(application)

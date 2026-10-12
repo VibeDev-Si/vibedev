@@ -4,7 +4,7 @@
       "type": "info",
       "title": "管理 vibedev-app 命令",
       "message": "将 Desktop 命令添加到终端。",
-      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "安装",
         "取消"
@@ -16,7 +16,7 @@
       "type": "info",
       "title": "管理 vibedev-app 命令",
       "message": "Desktop 命令已安装。",
-      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n当前 vibedev-app 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n当前 vibedev-app 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "关闭",
         "修复",
@@ -29,7 +29,7 @@
       "type": "info",
       "title": "管理 vibedev-app 命令",
       "message": "Desktop 命令需要修复。",
-      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
+      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd",
       "buttons": [
         "关闭",
         "修复",
@@ -42,7 +42,7 @@
       "type": "warning",
       "title": "管理 vibedev-app 命令",
       "message": "Desktop 命令已安装。",
-      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n当前 vibedev-app 命令：C:\\Program Files\\nodejs\\vibedev-app.cmd\n\n另一个 vibedev-app 的优先级更高。请移除或调整该安装的顺序，以默认使用 Desktop 命令；也可以通过完整路径运行 Desktop 命令。",
+      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n当前 vibedev-app 命令：C:\\Program Files\\nodejs\\vibedev-app.cmd\n\n另一个 vibedev-app 的优先级更高。请移除或调整该安装的顺序，以默认使用 Desktop 命令；也可以通过完整路径运行 Desktop 命令。",
       "buttons": [
         "关闭",
         "修复",
@@ -55,7 +55,7 @@
       "type": "info",
       "title": "管理 vibedev-app 命令",
       "message": "将 Desktop 命令添加到终端。",
-      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev Next\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n无法确认 shell 中的命令。别名或另一个 vibedev-app 安装可能具有更高优先级。",
+      "detail": "Desktop 命令：C:\\Users\\user\\AppData\\Local\\Programs\\VibeDev\\resources\\runtime\\cli\\bin\\vibedev-app.cmd\n\n无法确认 shell 中的命令。别名或另一个 vibedev-app 安装可能具有更高优先级。",
       "buttons": [
         "安装",
         "取消"

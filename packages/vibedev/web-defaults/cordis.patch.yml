@@ -40,7 +40,7 @@
     - id: vibedev-web-runtime
       name: '@vibedev/dsh-web-defaults'
 
-# The VibeDev Ecosystem is built into VibeDev Next: same row id and package as a user
+# The VibeDev Ecosystem is built into VibeDev: same row id and package as a user
 # install, so an install a profile already has is replaced by this one (installationPlugins
 # in the Desktop Host). `official: true` lists it in the Official group of the Plugins page
 # (opening the card opens the ecosystem) and says its updates come with the app.
