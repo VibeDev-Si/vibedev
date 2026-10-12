@@ -89,7 +89,7 @@
     "@deepseek-ai/dsh-workflow-ptc": "workspace:*",
     "@vibedev/dsh-defaults": "workspace:*",
     "@vibedev/dsh-web-defaults": "workspace:*",
-    "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/b18dee339a2f351dc025a3b8aae4134b4ba5604c/bundled/vibedev-si-dsh-vibedev-0.3.2.tgz",
+    "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/9d8a96701f865ba9c1950410fa2ac77424e03de3/bundled/vibedev-si-dsh-vibedev-0.3.3.tgz",
     "@vibedev-si/dsh-ecosystem": "0.1.15",
     "@deepseek-ai/schemastery": "workspace:~",
     "commander": "^15.0.0",
