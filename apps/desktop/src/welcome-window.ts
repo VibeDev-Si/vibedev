@@ -1,19 +1,37 @@
 import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
 /** Native welcome window and its presentation-only renderer. */
 
+import { release } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, BrowserWindow, ipcMain, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
 import type { DesktopLocale } from './locale.ts'
 import { WELCOME_IPC, type WelcomeOperations } from './welcome-api.ts'
+
+/**
+ * VibeDev fork: whether Windows can draw the Acrylic material behind the window. Electron's backgroundMaterial needs
+ * Windows 11 22H2 (build 22621); on earlier builds the window stayed transparent and the page's 40% white tint
+ * showed as flat grey, with the secondary text almost invisible.
+ * @param systemRelease - `os.release()`, for example 10.0.19045.
+ */
+export function windowsAcrylicAvailable(systemRelease: string): boolean {
+  const build = Number(systemRelease.split('.')[2])
+  return Number.isInteger(build) && build >= 22621
+}
 
 /**
  * Resolve the fixed-size welcome window's native material and controls.
  * @param platform - operating system hosting Electron.
  * @param locale - shell-owned localized copy.
+ * @param systemRelease - operating-system release, which decides whether Windows provides Acrylic.
+ * @param dark - whether the system uses dark colors; the opaque surface and its caption buttons follow it.
  * @returns sandboxed window options with a locale-only preload.
  */
-export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopLocale): BrowserWindowConstructorOptions {
+export function welcomeWindowOptions(
+  platform: NodeJS.Platform, locale: DesktopLocale, systemRelease: string = release(), dark: boolean = nativeTheme.shouldUseDarkColors,
+): BrowserWindowConstructorOptions {
+  // Without Acrylic the window and the page paint an opaque surface (preload-welcome reads the argument).
+  const opaque = platform === 'win32' && !windowsAcrylicAvailable(systemRelease)
   return {
     width: 600,
     height: 700,
@@ -24,7 +42,7 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     fullscreenable: false,
     show: false,
     title: locale.messages.welcomeTitle,
-    backgroundColor: platform === 'darwin' || platform === 'win32' ? '#00000000' : '#FFFFFF',
+    backgroundColor: opaque ? (dark ? '#1C1D20' : '#F7F8FA') : platform === 'darwin' || platform === 'win32' ? '#00000000' : '#FFFFFF',
     ...(platform === 'darwin' ? {
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 21, y: 21 },
@@ -33,12 +51,12 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     } as const : {}),
     ...(platform === 'win32' ? {
       titleBarStyle: 'hidden',
-      titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
-      backgroundMaterial: 'acrylic',
+      titleBarOverlay: { color: '#00000000', symbolColor: opaque && dark ? '#F9FAFB' : '#0F1115', height: 42 },
+      ...(opaque ? {} : { backgroundMaterial: 'acrylic' }),
     } as const : {}),
     webPreferences: {
       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
-      additionalArguments: [`--dsh-welcome-locale=${locale.id}`],
+      additionalArguments: [`--dsh-welcome-locale=${locale.id}`, ...(opaque ? ['--dsh-welcome-backdrop=opaque'] : [])],
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

@@ -37,6 +37,18 @@ body {
   }
 }
 
+/* VibeDev fork: Windows before 11 22H2 has no Acrylic, so nothing is behind the transparent window and the 40% tint
+   showed as flat grey with the secondary text nearly invisible. There the page paints an opaque surface. */
+:root[data-opaque-backdrop] body {
+  --welcome-tint: #f7f8fa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-opaque-backdrop] body {
+    --welcome-tint: #1c1d20;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

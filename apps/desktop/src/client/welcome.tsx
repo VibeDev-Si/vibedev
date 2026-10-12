@@ -12,6 +12,9 @@ declare global {
   }
 }
 
+// VibeDev fork: without a native material (Windows before 11 22H2) the surface is opaque; see welcome.css.
+document.documentElement.toggleAttribute('data-opaque-backdrop', window.dshWelcome.opaqueBackdrop === true)
+
 const palette = window.matchMedia('(prefers-color-scheme: dark)')
 const syncPalette = (): void => { document.body.toggleAttribute('data-ds-dark-theme', palette.matches) }
 syncPalette()

@@ -64,6 +64,8 @@ export interface WelcomeOperations {
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */
 export type WelcomeApi = DesktopLocale & WelcomeOperations & {
+  /** VibeDev fork: the window has no native material behind it (Windows before 11 22H2); the page paints its own surface. */
+  readonly opaqueBackdrop?: boolean
   /** @param listener - safe account snapshot recipient. @returns subscription disposer. */
   onAccountState(listener: (state: DesktopAccountView) => void): () => void
 }

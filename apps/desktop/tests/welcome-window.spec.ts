@@ -10,6 +10,7 @@ const electron = vi.hoisted(() => ({
 }))
 vi.mock('electron', () => ({
   app: { getAppPath: () => electron.root },
+  nativeTheme: { shouldUseDarkColors: false },
   BrowserWindow: vi.fn(function (options: unknown) { return electron.create(options) }),
   ipcMain: {
     handle: (name: string, handler: (event: unknown, value?: unknown, attributes?: unknown) => Promise<unknown>) => {
@@ -52,7 +53,7 @@ const operations = {
 
 describe('desktop welcome window', () => {
   it.each(['darwin', 'win32', 'linux'] as const)('keeps the %s preview fixed-size and sandboxed', (platform) => {
-    const options = welcomeWindowOptions(platform, resolveDesktopLocale('zh-CN'))
+    const options = welcomeWindowOptions(platform, resolveDesktopLocale('zh-CN'), '10.0.26100')
     expect(options).toMatchObject({
       width: 600, height: 700, useContentSize: true, center: true, show: false,
       resizable: false, maximizable: false, fullscreenable: false,
@@ -74,6 +75,30 @@ describe('desktop welcome window', () => {
       expect(options.vibrancy).toBeUndefined()
       expect(options.backgroundMaterial).toBeUndefined()
     }
+  })
+
+  // VibeDev fork: Acrylic needs Windows 11 22H2 (build 22621). Below that the window stayed transparent and the
+  // page's 40% white tint showed as flat grey with the secondary text almost invisible.
+  it.each([
+    ['10.0.19045', false],
+    ['10.0.22000', false],
+    ['10.0.22621', true],
+    ['10.0.26100', true],
+  ] as const)('on Windows %s, Acrylic is used only where Windows provides it (%s)', (release, material) => {
+    const options = welcomeWindowOptions('win32', resolveDesktopLocale('zh-CN'), release)
+    expect(options.backgroundMaterial).toBe(material ? 'acrylic' : undefined)
+    expect(options.backgroundColor).toBe(material ? '#00000000' : '#F7F8FA')
+    expect(options.webPreferences?.additionalArguments).toEqual(material
+      ? ['--dsh-welcome-locale=zh-CN'] : ['--dsh-welcome-locale=zh-CN', '--dsh-welcome-backdrop=opaque'])
+    expect(options.titleBarOverlay).toMatchObject({ height: 42 })
+  })
+
+  it('without Acrylic, the opaque surface and the caption buttons follow a dark system theme', () => {
+    const options = welcomeWindowOptions('win32', resolveDesktopLocale('zh-CN'), '10.0.19045', true)
+    expect(options.backgroundColor).toBe('#1C1D20')
+    expect(options.titleBarOverlay).toMatchObject({ symbolColor: '#F9FAFB' })
+    // With Acrylic the window keeps the upstream look.
+    expect(welcomeWindowOptions('win32', resolveDesktopLocale('zh-CN'), '10.0.26100', true).titleBarOverlay).toMatchObject({ symbolColor: '#0F1115' })
   })
 
   it('waits for its local document and blocks renderer navigation', async () => {
