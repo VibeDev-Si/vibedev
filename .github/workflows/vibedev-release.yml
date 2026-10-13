@@ -1,0 +1,304 @@
+# VibeDev 桌面端发布：打 tag → 自动打包 → 草稿 Release → 你点发布
+#
+# 怎么用：
+#   git tag -a desktop-v0.2.1-alpha.2.20261013.3 -m "修复登录页在 Win10 上的显示；账号插件升到 0.3.3
+#
+#   还有话要说就接着写，这几行会原样成为用户看到的更新内容。"
+#   git push origin desktop-v0.2.1-alpha.2.20261013.3
+#
+# 然后：
+#   1. Windows 和 macOS 两台托管机器各自打包（公开仓库的标准 runner 不花分钟数）
+#      · Windows：未签名
+#      · macOS：用 Developer ID 正常签名 + 公证（凭据来自仓库 secrets，见 RELEASE-CI.md）
+#   2. 安装包自动传到一个【草稿 Release】—— 此时除了仓库成员没人看得到
+#   3. 你在 GitHub 的 Releases 页面看版本号、文件、更新内容，觉得没问题 → 点「Publish release」
+#   4. 发布后按 RELEASE-CI.md 里的命令把安装包推上下载服务器（这一步将来也可以自动化）
+#
+# 为什么用「草稿 Release」当确认点：GitHub 原生的「跑到一半停下来等人批准」（环境 + 必需审批人）
+# 需要 Pro/Team/Enterprise，本组织是 Free，用不了。草稿 Release 免费、看得见、位置也最合适。
+#
+# 出错了想重跑：在同一页点 Re-run，或手动触发这个 workflow 并填已有的 tag。
+
+name: VibeDev desktop release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '已存在的 tag（例如 desktop-v0.2.1-alpha.2.20261013.3）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vibedev-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: 校验版本并建草稿 Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 从 tag 取版本号
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="${{ inputs.tag }}"
+          fi
+          case "$tag" in
+            desktop-v*) ;;
+            *) echo "::error::tag 必须是 desktop-v<版本> 的形式，收到：$tag"; exit 1 ;;
+          esac
+          version="${tag#desktop-v}"
+          product="$(node -p "require('./apps/desktop/package.json').version")"
+          case "$version" in
+            "${product}".*) ;;
+            *) echo "::error::版本必须以 ${product}. 开头，收到：$version"; exit 1 ;;
+          esac
+          case "$version" in
+            *[!A-Za-z0-9.+-]*) echo "::error::版本里有不允许的字符：$version"; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "本次发布版本：$version（来自 $tag）"
+
+      - name: 取更新内容（annotated tag 的说明）
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          version="${{ steps.meta.outputs.version }}"
+          {
+            echo "VibeDev 桌面版 \`$version\`（Windows x64 未签名 / macOS Apple 芯片已签名并公证）"
+            echo
+            git tag -l --format='%(contents)' "$tag" | sed '/^$/d'
+            echo
+            echo "---"
+            echo "- 提交：\`${GITHUB_SHA}\`"
+            echo "- 安装包在下方附件里；下载服务器由发布后单独推送"
+            echo "- Windows 版未签名，首次安装 SmartScreen 会提示，点「更多信息 → 仍要运行」"
+          } > "$RUNNER_TEMP/notes.md"
+          echo "----- 更新内容 -----"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: 建草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          version="${{ steps.meta.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag 已存在，沿用（只更新说明）"
+            gh release edit "$tag" --draft --title "VibeDev $version" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$tag" --draft --verify-tag \
+              --title "VibeDev $version" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
+  windows:
+    name: Windows x64（未签名）
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: 装依赖
+        run: |
+          pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+
+      # 和本机的 apps/desktop/.env.windows 一致；该文件是 .gitignore 的，CI 每次现写。
+      - name: 写打包设置 .env.windows
+        run: |
+          @'
+          DSH_DESKTOP_APP_ID=cn.bigopen.vibedev.app
+          DSH_DESKTOP_AUTO_UPDATE_ENV=production
+          DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://api.vibedev.studio
+          DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com
+          DSH_DESKTOP_WINDOWS_SIGNING=off
+          '@ | Set-Content -LiteralPath apps/desktop/.env.windows -Encoding utf8
+
+      - name: 先做配置校验（快，省得白等二十分钟）
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          pnpm --dir apps/desktop run package:win:x64 --check --build-version "$env:PACKAGE_VERSION"
+          exit $LASTEXITCODE
+
+      - name: 打包
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          pnpm --dir apps/desktop run package:win:x64 --build-version "$env:PACKAGE_VERSION"
+          exit $LASTEXITCODE
+
+      - name: 上传到草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          $dir = 'apps/desktop/.desktop-build/targets/win-x64/artifacts'
+          $files = @(Get-ChildItem -LiteralPath $dir -File |
+            Where-Object { $_.Name -like "vibedev-$env:PACKAGE_VERSION-win-x64*" -or $_.Name -eq 'nightly.yml' } |
+            Select-Object -ExpandProperty FullName)
+          if ($files.Count -eq 0) { throw "没找到产物：$dir" }
+          $files | ForEach-Object { "上传 $($_)" }
+          gh release upload $env:RELEASE_TAG @files --clobber
+          exit $LASTEXITCODE
+
+      - name: 保留打包日志（失败时排查用）
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-package-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: 删掉本次生成的设置文件
+        if: always()
+        run: |
+          if (Test-Path -LiteralPath apps/desktop/.env.windows) { Remove-Item -LiteralPath apps/desktop/.env.windows }
+
+  macos:
+    name: macOS arm64（Developer ID 签名 + 公证）
+    needs: prepare
+    runs-on: macos-14
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: 装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 证书和公证密钥只存在于本次运行的临时目录里，跑完就随 runner 一起消失。
+      # 需要哪些 secrets 见 RELEASE-CI.md。
+      - name: 展开签名证书与公证密钥
+        env:
+          CSC_P12_BASE64: ${{ secrets.MACOS_CSC_P12 }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/vibedev-signing"
+          mkdir -p "$work"
+          # CSC_LINK 要的是一个存在文件的路径，所以先把它落盘。
+          printf '%s' "$CSC_P12_BASE64" | base64 --decode > "$work/certificate.p12"
+          printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$work/AuthKey.p8"
+          chmod 600 "$work/certificate.p12" "$work/AuthKey.p8"
+          echo "证书 $(stat -f%z "$work/certificate.p12") 字节；API 密钥 $(stat -f%z "$work/AuthKey.p8") 字节"
+          echo "WORK=$work" >> "$GITHUB_ENV"
+
+      - name: 写打包设置 .env.macos
+        env:
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
+          CSC_PASSWORD: ${{ secrets.MACOS_CSC_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          # 注意：DSH_DESKTOP_MACOS_SIGNING_IDENTITY 要去掉 "Developer ID Application:" 前缀。
+          cat > apps/desktop/.env.macos <<EOF
+          DSH_DESKTOP_APP_ID=cn.bigopen.vibedev.app
+          DSH_DESKTOP_AUTO_UPDATE_ENV=production
+          DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://api.vibedev.studio
+          DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com
+          DSH_DESKTOP_MACOS_SIGNING_IDENTITY=${SIGNING_IDENTITY}
+          DSH_DESKTOP_MACOS_TEAM_ID=${TEAM_ID}
+          CSC_LINK=$WORK/certificate.p12
+          CSC_KEY_PASSWORD=${CSC_PASSWORD}
+          APPLE_API_KEY=$WORK/AuthKey.p8
+          APPLE_API_KEY_ID=${APPLE_API_KEY_ID}
+          APPLE_API_ISSUER=${APPLE_API_ISSUER}
+          EOF
+
+      - name: 先做配置校验（顺带验证证书能进钥匙串）
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: pnpm --dir apps/desktop run package:mac:arm64 --check --build-version "$PACKAGE_VERSION"
+
+      - name: 打包（签名 + 公证 + 装订）
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: pnpm --dir apps/desktop run package:mac:arm64 --build-version "$PACKAGE_VERSION"
+
+      - name: 上传到草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          base="apps/desktop/.desktop-build/targets/mac-arm64/artifacts"
+          shopt -s nullglob
+          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.blockmap "$base"/nightly-mac.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::没找到 macOS 产物，目录内容如下："
+            find "$(dirname "$base")" -maxdepth 2 -type f | head -40
+            exit 1
+          fi
+          printf '上传 %s\n' "${files[@]}"
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+
+      - name: 保留打包日志（失败时排查用）
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-package-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # 凭据文件不进任何产物；runner 是临时的，这里只是保险。
+      - name: 删掉本次生成的设置文件与凭据
+        if: always()
+        run: |
+          rm -f apps/desktop/.env.macos
+          rm -rf "${RUNNER_TEMP:-/tmp}/vibedev-signing"
