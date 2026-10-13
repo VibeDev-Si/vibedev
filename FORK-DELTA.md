@@ -21,7 +21,7 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 
 | Identity | Upstream | VibeDev | Where |
 |---|---|---|---|
-| Install name (exe, install dir, Start menu, uninstall entry) | DeepSeek Harness | VibeDev (was "VibeDev Next" until 2026-10-12; the same appId `cn.bigopen.vibedev.app` upgrades that install and moves it to `Programs\VibeDev`) | `electron-builder-config.mjs`, `installer/previous-name.nsh` |
+| Install name (exe, install dir, Start menu, uninstall entry) | DeepSeek Harness | VibeDev (was "VibeDev Next" until 2026-10-12) | `electron-builder-config.mjs`, `installer/previous-name.nsh` |
 | Name shown in the app | DeepSeek Harness | VibeDev | locale files, About panel, client title |
 | Harness home | `~/.dsh` | `~/.vibedev-app` (default for `DSH_HOME`; an explicit `DSH_HOME` wins) | `apps/desktop/src/main.ts`, CLI shims |
 | Web port (`vibedev-app web`) | 3080 | 3180 | `@vibedev/dsh-web-defaults` |
@@ -30,7 +30,8 @@ This repository is VibeDev's fork of [deepseek-ai/deepseek-harness](https://gith
 | Public command | `dsh` | `vibedev-app` | CLI shims, `prepare-cli.ts`, command management |
 | Default workspace | `Documents/deepseek-harness` | `Documents/VibeDev` | `default-directory.ts` |
 | Model request User-Agent | `deepseek-harness/<v>` | `vibedev-app/<v>` | `packages/llm/llm/src/attribution.ts` |
-| App id (packaging env `DSH_DESKTOP_APP_ID`) | `com.deepseek.harness` | `cn.bigopen.vibedev.app` | packaging environment |
+| App id (packaging env `DSH_DESKTOP_APP_ID`) | `com.deepseek.harness` | `studio.vibedev.app` (the requested product id; `cn.bigopen.vibedev.app` until 2026-10-13) | packaging environment |
+| App id change 2026-10-13 | `cn.bigopen.vibedev.app` | Installs packaged with the old id are **not** upgraded in place — electron-builder derives the uninstall entry from the app id, so the new installer does not see them (it installs over `Programs\VibeDev` and leaves the old uninstall entry behind). One manual uninstall of the old VibeDev is needed, once | packaging environment |
 
 ## VibeDev packages (`packages/vibedev/*`)
 
@@ -76,7 +77,7 @@ Login diagnostics (2026-10-09): the component retains an authoritative attempt t
 | `apps/desktop-host/src/update-tasks.ts`, new `tests/update-tasks.spec.ts` | The update admission lock drains only writes (not GET/HEAD/OPTIONS), as its comment says | A plugin long poll (the account pages, 25 s in 0.3.2) kept a GET open; waiting for it failed the 10 s install deadline about every other attempt ("task inspection timed out") | Yes |
 | `.github/dependabot.yml` (removed); repository settings | No Dependabot and no GitHub Actions on the private `VibeDev-Si/vibedev`: its inherited CI and Dependabot PR runs used the organisation's paid minutes, and no VibeDev release uses them (packaging is local, publishing goes through the release API) | Cost; dependencies follow upstream merges | No |
 | `apps/desktop/scripts/development-app.ts` | macOS dev bundle URL scheme and bundle id | Follows the scheme and app id | No |
-| `apps/desktop/.env.windows.example`, `.env.macos.example` | `DSH_DESKTOP_APP_ID=cn.bigopen.vibedev.app` | Packaging never reuses DeepSeek's app id | No |
+| `apps/desktop/.env.windows.example`, `.env.macos.example` | `DSH_DESKTOP_APP_ID=studio.vibedev.app` | Packaging never reuses DeepSeek's app id | No |
 | `apps/desktop/cli/dsh` → `vibedev-app`, `dsh.cmd` → `vibedev-app.cmd` | Renamed; launch `VibeDev`; default `DSH_HOME` | Own command; same home as the Desktop app | No |
 | `apps/desktop/scripts/prepare-cli.ts`, `src/command-management.ts`, `src/command-manager-entry.ts`, `scripts/command-path.ps1` | Command name `vibedev-app`; registry key and mutex `VibeDevApp` | Own command and PATH ownership | No |
 | `apps/desktop/src/locale.ts` | Product name, command name, address-in-use text, welcome tagline | Brand; the tagline is placeholder copy awaiting the user's wording | No |

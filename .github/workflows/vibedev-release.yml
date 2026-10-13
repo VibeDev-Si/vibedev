@@ -145,7 +145,7 @@ jobs:
       - name: 写打包设置 .env.windows
         run: |
           @'
-          DSH_DESKTOP_APP_ID=cn.bigopen.vibedev.app
+          DSH_DESKTOP_APP_ID=studio.vibedev.app
           DSH_DESKTOP_AUTO_UPDATE_ENV=production
           DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://api.vibedev.studio
           DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com
@@ -245,7 +245,7 @@ jobs:
           set -euo pipefail
           # 注意：DSH_DESKTOP_MACOS_SIGNING_IDENTITY 要去掉 "Developer ID Application:" 前缀。
           cat > apps/desktop/.env.macos <<EOF
-          DSH_DESKTOP_APP_ID=cn.bigopen.vibedev.app
+          DSH_DESKTOP_APP_ID=studio.vibedev.app
           DSH_DESKTOP_AUTO_UPDATE_ENV=production
           DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://api.vibedev.studio
           DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com
