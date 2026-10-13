@@ -41,6 +41,9 @@
     "upload:latest:mac:arm64": "tsx scripts/upload-target.ts mac-arm64 --latest",
     "upload:latest:mac:x64": "tsx scripts/upload-target.ts mac-x64 --latest",
     "upload:latest:win:x64": "tsx scripts/upload-target.ts win-x64 --latest",
+    "upload:release:win:x64": "tsx scripts/publish-release.ts --target win-x64",
+    "upload:release:mac:arm64": "tsx scripts/publish-release.ts --target mac-arm64",
+    "upload:release:mac:x64": "tsx scripts/publish-release.ts --target mac-x64",
     "upload:server:mac:arm64": "tsx scripts/upload-server.ts mac-arm64",
     "upload:server:mac:x64": "tsx scripts/upload-server.ts mac-x64",
     "upload:server:win:x64": "tsx scripts/upload-server.ts win-x64"

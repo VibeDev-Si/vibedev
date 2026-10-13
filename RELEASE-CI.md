@@ -63,23 +63,43 @@ git push origin desktop-v0.2.1-alpha.2.20261013.3
 
 想重跑：同一页点 Re-run，或手动触发这个 workflow 并填已有的 tag。
 
-## 推下载服务器（目前还是手动）
+## 推下载服务器
 
-CI 只负责打包和建 Release。让用户真正拿到更新，还需要把安装包放到
-`https://download.vibedev.studio`：
+CI 只负责打包和建 Release。你在页面上点了 **Publish release** 之后，用 `publish-release.ts`
+把 Release 里的资产推到下载服务器——它读的是 Release，**不需要本地有构建产物**：
 
 ```bash
-corepack pnpm --dir apps/desktop run upload:server:win:x64 -- \
+# 先看一眼要做什么（只读 GitHub，不碰服务器）
+corepack pnpm --dir apps/desktop run upload:release:win:x64 \
+  --tag desktop-v0.2.1-alpha.2.20261013.4 \
   --ssh root@64.204.25.8 --identity <私钥> --known-hosts <known_hosts> \
-  --root /data/vibedev-download/public --via-github VibeDev-Si/vibedev
-# macOS 换成 upload:server:mac:arm64
+  --root /data/vibedev-download/public --latest --dry-run
+
+# 确认无误后去掉 --dry-run 真跑
 ```
 
-⚠️ **已知缺口**：这条命令需要**本地有构建产物**（它读取 `.desktop-build` 里的产物和完成记录），
-所以 CI 打出来的包不能直接用它推送。两个补法，需要时我来做：
+macOS 把 `upload:release:win:x64` 换成 `upload:release:mac:arm64`（Intel 是 `mac:x64`）。
 
-- 写一个「从 Release 推送」的脚本：读 Release 资产 → 服务器用临时签名链接拉取 → 校验 SHA-512 → 改名生效（复用现有逻辑，约 50 行）；
-- 或者把这一步也放进 CI（需要把 SSH 私钥加进 secrets）。
+它做的事：
+
+- 服务器用 GitHub 给的一次性签名链接拉取每个文件（服务器仍然不需要 GitHub 凭据），中途存成临时名；
+- **校验**：更新载荷对比清单里承诺的 SHA-512，其余文件对比 GitHub 记录的 SHA-256（两处都是服务器本机算的）；
+- 通过后改名到位；**更新清单最后发布**，保证清单不会先指向还不存在的文件；
+- 已发布的带版本文件不可修改：字节相同＝跳过，字节不同＝报错停下；清单是唯一允许变的；
+- `--latest` 把同一个安装包复制到固定下载地址（服务器端 cp，不重新传）；
+- 最后在服务器本机用 nginx 回读每个地址，确认真的能下。
+
+> 为什么清单必须改写：electron-builder 写的是**相对**载荷名，而应用会把它解析到清单所在目录
+> （`feeds/win-x64/`）。二进制实际在 `bin/win-x64/`，不改写就会 404。脚本发布前把它改成绝对地址。
+
+### 这个脚本验证到什么程度
+
+- 13 个单元测试：标签解析、两个平台的清单改写与路径规划、缺文件/清单不匹配的报错、
+  固定下载名、服务器返回相同/不同字节时的行为。
+- 对真实 Release（`desktop-v0.2.1-alpha.2.20261013.2`）跑过一次完整流程：服务器上三个文件
+  全部识别为「未变」（字节确实一致），`--latest` 复制成功，nginx 回读 4 个地址都是 200。
+- **未验证**：从零开始的一次真实上传（即服务器上还没有这些文件时的下载+校验+改名路径）。
+  这条路径要等第一个 CI 版本发布时才会走到；那之前先用 `--dry-run` 核对计划。
 
 ## 还没验证过的地方
 

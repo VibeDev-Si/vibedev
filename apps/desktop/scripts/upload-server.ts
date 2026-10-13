@@ -54,7 +54,7 @@ export interface ServerUploadResult {
 const KEY = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/u
 
 /** Single-quote one argument for a POSIX shell. */
-function quote(value: string): string {
+export function quote(value: string): string {
   return `'${value.replaceAll('\'', '\'\\\'\'')}'`
 }
 
@@ -161,7 +161,55 @@ async function github(token: string, url: string, init: RequestInit = {}): Promi
     headers: { Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', Accept: 'application/vnd.github+json', ...init.headers } })
 }
 
-interface GitHubAsset { readonly id: number; readonly name: string; readonly digest?: string | null; readonly state: string }
+/** One release asset as the REST API reports it. `digest` is GitHub's own SHA-256 of the stored bytes. */
+export interface GitHubAsset {
+  readonly id: number
+  readonly name: string
+  readonly size?: number
+  readonly digest?: string | null
+  readonly state: string
+}
+
+/** The release a CI build published to, with its assets. */
+export interface GitHubRelease {
+  readonly id: number
+  readonly tag: string
+  readonly assets: readonly GitHubAsset[]
+}
+
+/**
+ * Read one published release and its assets. Used by the release-driven publish, which takes the
+ * installers a CI run uploaded instead of a local build directory.
+ * @param options - repository, tag and the local `gh` token.
+ * @returns the release and every asset it holds.
+ * @throws When the release is absent or its assets cannot be listed.
+ */
+export async function githubRelease(options: { repo: string; tag: string; token: string }): Promise<GitHubRelease> {
+  const response = await github(options.token, `/repos/${options.repo}/releases/tags/${encodeURIComponent(options.tag)}`)
+  if (!response.ok) {
+    throw new Error(`desktop release publish: release ${options.tag} is not in ${options.repo} (${response.status}); publish the draft release first`)
+  }
+  const release = await response.json() as { id: number; tag_name: string; assets: GitHubAsset[] }
+  return { id: release.id, tag: release.tag_name, assets: release.assets }
+}
+
+/**
+ * The short-lived URL GitHub answers for one asset download. The server follows it with curl, so it
+ * never needs a GitHub credential of its own.
+ * @param options - repository and the local `gh` token.
+ * @param assetId - asset to download.
+ * @returns the signed download URL.
+ * @throws When GitHub does not answer with a redirect.
+ */
+export async function githubAssetDownloadUrl(options: { repo: string; token: string }, assetId: number): Promise<string> {
+  const redirect = await github(options.token, `/repos/${options.repo}/releases/assets/${assetId}`,
+    { headers: { Accept: 'application/octet-stream' }, redirect: 'manual' })
+  const location = redirect.headers.get('location')
+  if (redirect.status < 300 || redirect.status >= 400 || location === null) {
+    throw new Error(`desktop release publish: GitHub gave no download link for asset ${assetId} (${redirect.status})`)
+  }
+  return location
+}
 
 /**
  * The release `tag` of `repo` as a relay, created on `commit` when absent. The server fetches each asset
