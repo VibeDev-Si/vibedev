@@ -176,7 +176,7 @@ export function verifyMacOSDiskImage(diskImagePath, expected) {
   const details = runCodeSign(['--display', '--verbose=4', diskImagePath])
   assertMacOSSignatureDetails(details, expected)
   runAppleCommand('/usr/bin/xcrun', ['stapler', 'validate', diskImagePath], 'stapler validate')
-  runAppleCommand('/usr/sbin/spctl', ['--assess', '--type', 'install', '--verbose=4', diskImagePath], 'spctl')
+  runAppleCommand('/usr/sbin/spctl', ['--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=4', diskImagePath], 'spctl')
 }
 
 /**
