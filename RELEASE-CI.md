@@ -18,8 +18,9 @@
 
 ### 3. 配置 macOS 签名与公证的 secrets
 
-macOS 是**正常签名 + 公证**的（Windows 才是未签名）。下面 7 个 secret 加在
-`Settings → Secrets and variables → Actions`。
+macOS 使用 Developer ID 签名和公证，App ID 固定为 `studio.vibedev.app`；后续 Mac 版本保持这个 ID。Windows 配置独立。
+
+在 `Settings → Secrets and variables → Actions` 配置四项签名 secret，再选择一组完整的公证凭据。两组公证 secrets 不能同时存在，缺项或混用会在打包前失败。
 
 | Secret | 内容 | 怎么拿 |
 |---|---|---|
@@ -27,11 +28,28 @@ macOS 是**正常签名 + 公证**的（Windows 才是未签名）。下面 7 �
 | `MACOS_CSC_PASSWORD` | 上面 `.p12` 的导出密码 | 导出时设的那个 |
 | `MACOS_SIGNING_IDENTITY` | 证书名，**必须去掉 `Developer ID Application:` 前缀**，例如 `VibeDev Technology Limited (AB12CD34EF)` | Mac 上跑 `security find-identity -v -p codesigning` 看 |
 | `MACOS_TEAM_ID` | 10 位团队 ID | 同上，括号里那串（10 位大写字母或数字） |
+
+公证方式 A：Apple ID 和 App 专用密码。
+
+| Secret | 内容 | 怎么拿 |
+|---|---|---|
+| `APPLE_ID` | 有公证权限的 Apple ID | 该签名团队的成员账号 |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App 专用密码 | 在 Apple 账号管理页面生成；不能用账号登录密码 |
+| `APPLE_TEAM_ID` | 公证使用的团队 ID | 与 `MACOS_TEAM_ID` 对应的团队 |
+
+本机的 `vibedev-notary` 钥匙串 profile 不会传到 GitHub runner；CI 需要这三项 secrets。不要把密码写入仓库或发布日志。
+
+写入 `.env.macos` 的 secret 必须是单行值；CI 验证 dotenv 解析后与原值一致，无法保真保存时拒绝打包，避免密码中的 `#` 等字符被截断。
+
+公证方式 B：App Store Connect 团队 API 密钥。
+
+| Secret | 内容 | 怎么拿 |
+|---|---|---|
 | `APPLE_API_KEY_P8` | App Store Connect API 密钥 `.p8` 的 base64 | App Store Connect →「用户和访问」→「集成」→「团队密钥」→ 生成（权限选 Developer ID / 公证）→ 下载 `.p8`（**只能下一次**）→ `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
 | `APPLE_API_KEY_ID` | 密钥 ID | `.p8` 文件名里的那串 |
 | `APPLE_API_ISSUER` | Issuer ID（UUID） | 团队密钥页面顶部 |
 
-在 Mac 上用命令行加（更省事）：
+在 Mac 上配置签名和方式 A 的 secrets：
 
 ```bash
 GH_REPO=VibeDev-Si/vibedev
@@ -39,13 +57,14 @@ gh secret set MACOS_CSC_P12        --repo $GH_REPO < cert.p12.base64
 gh secret set MACOS_CSC_PASSWORD   --repo $GH_REPO   # 会提示输入
 gh secret set MACOS_SIGNING_IDENTITY --repo $GH_REPO
 gh secret set MACOS_TEAM_ID        --repo $GH_REPO
-gh secret set APPLE_API_KEY_P8     --repo $GH_REPO < AuthKey.p8.base64
-gh secret set APPLE_API_KEY_ID     --repo $GH_REPO
-gh secret set APPLE_API_ISSUER     --repo $GH_REPO
+gh secret set APPLE_ID --repo $GH_REPO
+gh secret set APPLE_APP_SPECIFIC_PASSWORD --repo $GH_REPO
+gh secret set APPLE_TEAM_ID --repo $GH_REPO
 ```
 
-（公证也可以用 Apple ID 那套替代：`APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`。
-API 密钥更稳，推荐。）
+选择方式 B 时，用 `APPLE_API_KEY_P8`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER` 替代上面的三项 Apple ID secrets；不要配置另一组。`MACOS_CSC_P12` 和 `APPLE_API_KEY_P8` 分别接收对应文件的 base64 文本。
+
+`--check` 验证本地配置和工具链，不导入证书，也不验证 Apple 凭据。证书导入、签名与公证由实际打包步骤验证；首次 CI 运行的操作者负责确认这三个步骤成功。
 
 ## 日常发版
 
@@ -65,8 +84,7 @@ git push origin desktop-v0.2.1-alpha.2.20261013.3
 
 ## 推下载服务器（目前还是手动）
 
-CI 只负责打包和建 Release。让用户真正拿到更新，还需要把安装包放到
-`https://download.vibedev.studio`：
+CI 只负责打包和建 Release。Mac 资产包含安装包、ZIP、blockmap、`nightly-mac.yml` 和记录 commit、版本的 `mac-arm64-release.json`。让用户真正拿到更新，还需要把安装包放到 `https://download.vibedev.studio`：
 
 ```bash
 corepack pnpm --dir apps/desktop run upload:server:win:x64 -- \
@@ -83,8 +101,7 @@ corepack pnpm --dir apps/desktop run upload:server:win:x64 -- \
 
 ## 还没验证过的地方
 
-- **macOS 打包这条路本仓库还没跑过一次**。第一次跑要重点看：`--check` 是否通过、证书能否进钥匙串、
-  公证是否成功、产物目录是不是 `artifacts/`（签名版）而不是 `unsigned-artifacts/`。
+- 本机 macOS 正式签名、公证打包已完成，App 和 DMG 的 Apple 公证结果均为 `Accepted`。GitHub 托管 runner 的首次打包仍待验证；首次运行需确认配置校验、证书导入、公证成功，以及产物进入签名版的 `artifacts/` 目录。
 - 托管 runner 上 `pnpm install --frozen-lockfile` 会从 raw.githubusercontent.com 拉内置的账号插件包，
   该仓库现在是公开的，正常。
 - 未签名的 Windows 包自动更新正常；已签名的 macOS 包自动更新理论上正常（Electron 的 Squirrel.Mac 需要签名，我们有签名）。
