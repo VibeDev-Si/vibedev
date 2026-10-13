@@ -164,10 +164,18 @@ macOS 把 `upload:release:win:x64` 换成 `upload:release:mac:arm64`（Intel 是
   等旧装都手动清理干净再推。
 - 结论：**appId 从此视为不可再改**。真要改，就得接受一次全员手动卸载重装。
 
+## 遇到过的问题与处理
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| macOS job 在「打包」最后一步失败：`Failed to staple your application with code: 68` + `Code=-1005 "The network connection was lost."` | Apple 的装订服务偶发网络中断（同一时间窗里另一个 mac job 是成功的，所以不是我们的问题） | **重跑失败的 job**：`gh run rerun <run-id> --failed`。已完成 job 的产物不会丢 |
+| 草稿 Release 的说明里 `##` 标题没了 | `git tag -a -F` 默认 cleanup 会把 `#` 开头的行当注释删掉 | 说明里分段用 **加粗**；非要 `#` 就加 `--cleanup=verbatim`（见「日常发版」一节） |
+| 两个 mac 架构的更新清单在 Release 里互相覆盖 | 两个架构的清单都叫 `nightly-mac.yml` | 各 job 上传时改名为 `<target>-<清单名>`，发布脚本优先取带目标名的（见「推下载服务器」一节） |
+| Windows 旧装反复下载却装不上 | 换过 appId（见上一节） | 先卸载再安装；feed 在旧装清理干净前不推 |
+
 ## 还没验证过的地方
 
 - 未签名的 Windows 包自动更新正常；已签名的 macOS 包自动更新**待实测**（Squirrel.Mac 会校验签名，我们的包有签名）。
-- **macOS Intel(x64) 这条路一次都没跑过**：`package:mac:x64` 命令、上传/发布脚本都支持（固定下载名是
-  `dsh-latest-macos-x64.dmg`），但 fork 里从未真正构建过。第一次跑要看：`--check` 是否通过、原生模块能否在
-  Intel 机器上装好、公证是否成功。这个 job 是独立的，它失败不影响 arm64 和 Windows 出包。
+- **macOS Intel(x64)**：`--check` 与整条打包链已经通过（首次运行到公证完成，只在最后的装订步骤遇到 Apple 网络抖动），
+  等重跑成功即视为打通；之后还要在真 Intel 机器上装一次确认能启动。
 - 苹果的 Intel 机器已经进入退场期（macOS 26 之后不再支持），但存量机器还有，所以这一版先出着。
