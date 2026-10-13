@@ -223,16 +223,41 @@ jobs:
         env:
           CSC_P12_BASE64: ${{ secrets.MACOS_CSC_P12 }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          umask 077
+          api_count=0
+          apple_id_count=0
+          for value in "$APPLE_API_KEY_P8_BASE64" "$APPLE_API_KEY_ID" "$APPLE_API_ISSUER"; do
+            if [ -n "$value" ]; then api_count=$((api_count + 1)); fi
+          done
+          for value in "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID"; do
+            if [ -n "$value" ]; then apple_id_count=$((apple_id_count + 1)); fi
+          done
+          if [ "$api_count" -eq 3 ] && [ "$apple_id_count" -eq 0 ]; then
+            notary_auth=api-key
+          elif [ "$apple_id_count" -eq 3 ] && [ "$api_count" -eq 0 ]; then
+            notary_auth=apple-id
+          else
+            echo "::error::公证凭据必须二选一且三项完整：APPLE_API_KEY_P8 / APPLE_API_KEY_ID / APPLE_API_ISSUER，或 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID。请删除另一组 secrets。"
+            exit 1
+          fi
           work="$RUNNER_TEMP/vibedev-signing"
           mkdir -p "$work"
           # CSC_LINK 要的是一个存在文件的路径，所以先把它落盘。
           printf '%s' "$CSC_P12_BASE64" | base64 --decode > "$work/certificate.p12"
-          printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$work/AuthKey.p8"
-          chmod 600 "$work/certificate.p12" "$work/AuthKey.p8"
-          echo "证书 $(stat -f%z "$work/certificate.p12") 字节；API 密钥 $(stat -f%z "$work/AuthKey.p8") 字节"
+          chmod 600 "$work/certificate.p12"
+          if [ "$notary_auth" = api-key ]; then
+            printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$work/AuthKey.p8"
+            chmod 600 "$work/AuthKey.p8"
+          fi
           echo "WORK=$work" >> "$GITHUB_ENV"
+          echo "NOTARY_AUTH=$notary_auth" >> "$GITHUB_ENV"
 
       - name: 写打包设置 .env.macos
         env:
@@ -241,24 +266,48 @@ jobs:
           CSC_PASSWORD: ${{ secrets.MACOS_CSC_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          # 注意：DSH_DESKTOP_MACOS_SIGNING_IDENTITY 要去掉 "Developer ID Application:" 前缀。
-          cat > apps/desktop/.env.macos <<EOF
-          DSH_DESKTOP_APP_ID=studio.vibedev.app
-          DSH_DESKTOP_AUTO_UPDATE_ENV=production
-          DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://api.vibedev.studio
-          DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com
-          DSH_DESKTOP_MACOS_SIGNING_IDENTITY=${SIGNING_IDENTITY}
-          DSH_DESKTOP_MACOS_TEAM_ID=${TEAM_ID}
-          CSC_LINK=$WORK/certificate.p12
-          CSC_KEY_PASSWORD=${CSC_PASSWORD}
-          APPLE_API_KEY=$WORK/AuthKey.p8
-          APPLE_API_KEY_ID=${APPLE_API_KEY_ID}
-          APPLE_API_ISSUER=${APPLE_API_ISSUER}
-          EOF
+          umask 077
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs'
+          import { parseEnv } from 'node:util'
+          const env = process.env
+          // Preserve password characters through the same parser used by the package entry.
+          const quoteValue = (name, value) => {
+            if (value === undefined || /[\r\n\0]/u.test(value)) throw new Error(`${name} must be a single-line value`)
+            for (const quote of ['"', "'", '`']) {
+              if (value.includes(quote)) continue
+              const line = `${name}=${quote}${value}${quote}`
+              if (parseEnv(line)[name] === value) return line
+            }
+            throw new Error(`${name} cannot be preserved in dotenv; replace its value`)
+          }
+          const settings = {
+            DSH_DESKTOP_APP_ID: 'studio.vibedev.app',
+            DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+            DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://api.vibedev.studio',
+            DSH_DESKTOP_NPM_REGISTRY: 'https://registry.npmmirror.com',
+            DSH_DESKTOP_MACOS_SIGNING_IDENTITY: env.SIGNING_IDENTITY,
+            DSH_DESKTOP_MACOS_TEAM_ID: env.TEAM_ID,
+            CSC_LINK: `${env.WORK}/certificate.p12`,
+            CSC_KEY_PASSWORD: env.CSC_PASSWORD,
+          }
+          if (env.NOTARY_AUTH === 'api-key') Object.assign(settings, {
+            APPLE_API_KEY: `${env.WORK}/AuthKey.p8`, APPLE_API_KEY_ID: env.APPLE_API_KEY_ID, APPLE_API_ISSUER: env.APPLE_API_ISSUER,
+          })
+          else if (env.NOTARY_AUTH === 'apple-id') Object.assign(settings, {
+            APPLE_ID: env.APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD: env.APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID: env.APPLE_TEAM_ID,
+          })
+          else throw new Error('NOTARY_AUTH must select one validated notarization strategy')
+          writeFileSync('apps/desktop/.env.macos', `${Object.entries(settings).map(([name, value]) => quoteValue(name, value)).join('\n')}\n`, { mode: 0o600 })
+          NODE
+          chmod 600 apps/desktop/.env.macos
 
-      - name: 先做配置校验（顺带验证证书能进钥匙串）
+      - name: 先做配置与工具链校验（不导入证书）
         env:
           PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
         run: pnpm --dir apps/desktop run package:mac:arm64 --check --build-version "$PACKAGE_VERSION"
@@ -277,7 +326,7 @@ jobs:
           set -euo pipefail
           base="apps/desktop/.desktop-build/targets/mac-arm64/artifacts"
           shopt -s nullglob
-          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.blockmap "$base"/nightly-mac.yml)
+          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.blockmap "$base"/nightly-mac.yml "$base"/mac-arm64-release.json)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::没找到 macOS 产物，目录内容如下："
             find "$(dirname "$base")" -maxdepth 2 -type f | head -40
