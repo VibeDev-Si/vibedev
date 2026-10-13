@@ -36,6 +36,8 @@ export function createWindowsTokenSigner(options: {
   runDirectory?: string | undefined
   stateDirectory?: string | undefined
   preserveSignature?: (path: string) => Promise<boolean>
+  /** Test-only timestamp retry delay; production waits on the real backoff timer. */
+  wait?: ((milliseconds: number) => Promise<unknown>) | undefined
 }): (
   configuration: {
     path: string

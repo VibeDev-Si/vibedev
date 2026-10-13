@@ -40,9 +40,12 @@ export function installDesktopUpdateTaskControl(ctx: Context): (action: 'inspect
       response.end()
       return
     }
-    // VibeDev fork: only writes are drained, as the lock below says. A read can stay open for a long time (a
-    // plugin's long poll holds one for 25 s), and waiting for it failed the 10 s update deadline.
-    if (READS.has((request as { method?: string }).method ?? 'GET')) { await next(); return }
+    // VibeDev fork: only a request that is provably a read is skipped, as the lock below says. A read can
+    // stay open for a long time (a plugin's long poll holds one for 25 s), and waiting for it failed the
+    // 10 s update deadline. Anything else drains — including a request whose method is unknown — so work
+    // that might change state can never slip past the lock.
+    const method = (request as { method?: string }).method
+    if (method !== undefined && READS.has(method)) { await next(); return }
     const finished = Promise.withResolvers<void>()
     pendingRequests.add(finished.promise)
     try { await next() }

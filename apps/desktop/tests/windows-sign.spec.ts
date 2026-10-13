@@ -18,7 +18,16 @@ import {
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>()
   const { promisify } = await import('node:util')
-  const mock = vi.fn()
+  // Every case installs its own implementation. A call that arrives without one would otherwise
+  // return undefined without ever invoking the callback, leaving the signing task pending until the
+  // case's timeout: the fake signer must fail loudly and immediately instead of never answering.
+  // vi.fn's argument survives mockReset(), which every case calls in its finally block.
+  const mock = vi.fn((...args: unknown[]) => {
+    const call = JSON.stringify(args.slice(0, 2))
+    throw Object.assign(new Error(`unexpected execFile call in windows-sign.spec.ts: ${call}`), {
+      stderr: `unexpected execFile call: ${call}`,
+    })
+  })
   // Node's execFile promisifier returns both output streams; generic promisify drops stderr.
   Object.defineProperty(mock, promisify.custom, { value: (...args: unknown[]) => new Promise((resolve, reject) => {
     mock(...args, (error: Error | null, stdout: string, stderr: string) => {
@@ -104,8 +113,11 @@ describe('Windows token signing', () => {
         return undefined as unknown as ReturnType<typeof execFile>
       })
       try {
+        // The retry backoff is a real 1 s/2 s timer by default; resolve it immediately instead so a
+        // retrying case never spends wall-clock time against its fixed 15 s budget (the same
+        // injected wait the windows-timestamp fixture uses). Attempt counts stay asserted below.
         const sign = createWindowsTokenSigner({ certificateFile, signTool, tokenPin: 'fixture-pin', keyContainer: 'fixture-container',
-          runDirectory: run.directory, stateDirectory })
+          runDirectory: run.directory, stateDirectory, wait: async () => {} })
         const task = { path, hash: 'sha256', isNest: false }
         if (mode === 'timestamp-recovered') {
           await sign(task)

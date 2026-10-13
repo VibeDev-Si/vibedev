@@ -15,11 +15,11 @@ function host() {
   } as unknown as Context
   const control = installDesktopUpdateTaskControl(ctx)
   /** One request that stays open until `finish` is called. */
-  const open = (method: string) => {
+  const open = (method: string | undefined) => {
     const done = Promise.withResolvers<undefined>()
     const status: number[] = []
     const response: Response = { writeHead: (code) => { status.push(code) }, end: () => undefined }
-    const settled = handler!({ method }, response, () => done.promise)
+    const settled = handler!(method === undefined ? {} : { method }, response, () => done.promise)
     return { finish: () => { done.resolve(undefined) }, settled, status }
   }
   return { control, open }
@@ -42,6 +42,16 @@ describe('desktop update admission', () => {
     const write = open('POST')
     expect(await within(control('lock'), 200)).toBe('pending')
     write.finish(); await write.settled
+    expect(await within(control('lock'), 200)).toBe(false)
+  })
+
+  // Upstream's host-update-tasks spec admits requests whose method is not set at all; a request that is
+  // not provably a read must drain, or a state change could slip past the lock.
+  it('drains a request whose method is unknown', async () => {
+    const { control, open } = host()
+    const unknown = open(undefined)
+    expect(await within(control('lock'), 200)).toBe('pending')
+    unknown.finish(); await unknown.settled
     expect(await within(control('lock'), 200)).toBe(false)
   })
 
