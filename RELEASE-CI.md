@@ -133,19 +133,40 @@ macOS 把 `upload:release:win:x64` 换成 `upload:release:mac:arm64`（Intel 是
 
 ### 这个脚本验证到什么程度
 
-- 13 个单元测试：标签解析、两个平台的清单改写与路径规划、缺文件/清单不匹配的报错、
-  固定下载名、服务器返回相同/不同字节时的行为。
-- 对真实 Release（`desktop-v0.2.1-alpha.2.20261013.2`）跑过一次完整流程：服务器上三个文件
+- 16 个单元测试：标签解析、两个平台的清单改写与路径规划、缺文件/清单不匹配的报错、
+  固定下载名、按目标挑清单、服务器返回相同/不同字节时的行为。
+- 对真实 Release（`desktop-v0.2.1-alpha.2.20261013.2`）跑过一次幂等流程：服务器上三个文件
   全部识别为「未变」（字节确实一致），`--latest` 复制成功，nginx 回读 4 个地址都是 200。
-- **未验证**：从零开始的一次真实上传（即服务器上还没有这些文件时的下载+校验+改名路径）。
-  这条路径要等第一个 CI 版本发布时才会走到；那之前先用 `--dry-run` 核对计划。
+- **从零上传这条路已于 2026-10-13 实测通过**（见下一节的表格）。
+
+## 已实测通过（2026-10-13，发布 `0.2.1-alpha.2.20261013.4`）
+
+第一次完整的 CI 发布，从 tag 到下载服务器：
+
+| 环节 | 结果 |
+|---|---|
+| `prepare` / `windows` / `macos` 三个 job | 全绿；Windows ≈14 分钟、macOS ≈19 分钟（日志里 `DMG creation and notarization completed in 237.82s`） |
+| 托管 runner 上的签名 + 公证 + 装订 | 通过（打包流程内的 `verifyMacOSSignatureAfterSign` / `verifyMacOSNotarizedApplication` / `verifyMacOSDiskImage` 都执行了，job 绿即通过） |
+| 草稿 Release（人工闸门） | 8 个资产齐全；草稿状态下 `publish-release.ts` 按 tag 读不到（404）→ **天然拒绝提前推送** |
+| 从 Release 推下载服务器（第一次走这条路） | macOS 5 个 key、Windows 4 个 key 全部上传 + nginx 回读 200；服务器本机算出的 SHA-256 与 GitHub 记录的 digest 一致 |
+| 公网复核 | 三个固定下载名与两个 feed 都可用；feed 里的载荷是**绝对地址**且指向正确的二进制 |
+
+### ⚠️ app id 就是 Windows 的升级身份（花了一整轮沙盒验证换来的）
+
+`multiUser.nsh:8` 把 `INSTALL_REGISTRY_KEY` 定义成 `Software\<APP_GUID>`，而 electron-builder 默认让 GUID 等于 appId；
+`installSection.nsh:52` 的 `uninstallOldVersion` **只清理自己 GUID 下的旧记录**。所以：
+
+- **改了 appId，就换了升级身份。** 新安装器装到旧装目录上会被目录守卫拦下，直接弹窗
+  「请选择空文件夹，或 VibeDev 原来的安装目录」——**不会就地升级**。
+- 实测：`20261013.1/.2`（旧 id `cn.bigopen.vibedev.app`）→ `20261013.4`（新 id `studio.vibedev.app`）必须先**卸载再安装**；
+  卸载不会删用户数据（`uninstaller.nsh:217` 默认 `$isDeleteAppData="0"`，我们也没定义 `DELETE_APP_DATA_ON_UNINSTALL`）。
+- 对自动更新的影响：旧装会反复下载却永远装不上（静默模式下安装器 1 秒返回、零改动）。**所以换 id 的那一版不要急着推 feed**，
+  等旧装都手动清理干净再推。
+- 结论：**appId 从此视为不可再改**。真要改，就得接受一次全员手动卸载重装。
 
 ## 还没验证过的地方
 
-- 本机 macOS 正式签名、公证打包已完成，App 和 DMG 的 Apple 公证结果均为 `Accepted`。GitHub 托管 runner 的首次打包仍待验证；首次运行需确认配置校验、证书导入、公证成功，以及产物进入签名版的 `artifacts/` 目录。
-- 托管 runner 上 `pnpm install --frozen-lockfile` 会从 raw.githubusercontent.com 拉内置的账号插件包，
-  该仓库现在是公开的，正常。
-- 未签名的 Windows 包自动更新正常；已签名的 macOS 包自动更新理论上正常（Electron 的 Squirrel.Mac 需要签名，我们有签名）。
+- 未签名的 Windows 包自动更新正常；已签名的 macOS 包自动更新**待实测**（Squirrel.Mac 会校验签名，我们的包有签名）。
 - **macOS Intel(x64) 这条路一次都没跑过**：`package:mac:x64` 命令、上传/发布脚本都支持（固定下载名是
   `dsh-latest-macos-x64.dmg`），但 fork 里从未真正构建过。第一次跑要看：`--check` 是否通过、原生模块能否在
   Intel 机器上装好、公证是否成功。这个 job 是独立的，它失败不影响 arm64 和 Windows 出包。
