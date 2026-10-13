@@ -177,9 +177,18 @@ jobs:
         run: |
           $dir = 'apps/desktop/.desktop-build/targets/win-x64/artifacts'
           $files = @(Get-ChildItem -LiteralPath $dir -File |
-            Where-Object { $_.Name -like "vibedev-$env:PACKAGE_VERSION-win-x64*" -or $_.Name -eq 'nightly.yml' } |
+            Where-Object { $_.Name -like "vibedev-$env:PACKAGE_VERSION-win-x64*" } |
             Select-Object -ExpandProperty FullName)
           if ($files.Count -eq 0) { throw "没找到产物：$dir" }
+          $feed = Join-Path $dir 'nightly.yml'
+          if (-not (Test-Path -LiteralPath $feed)) { throw "没找到更新清单：$feed" }
+          # 清单在 Release 里带上目标名：两个 mac 架构的清单同名（nightly-mac.yml），
+          # 直接用原名会互相覆盖，发布脚本也就分不清拿到的是哪个架构的。
+          $staged = Join-Path $env:RUNNER_TEMP 'release'
+          New-Item -ItemType Directory -Force -Path $staged | Out-Null
+          $readyFeed = Join-Path $staged 'win-x64-nightly.yml'
+          Copy-Item -LiteralPath $feed -Destination $readyFeed -Force
+          $files += $readyFeed
           $files | ForEach-Object { "上传 $($_)" }
           gh release upload $env:RELEASE_TAG @files --clobber
           exit $LASTEXITCODE
@@ -329,14 +338,20 @@ jobs:
           set -euo pipefail
           base="apps/desktop/.desktop-build/targets/mac-arm64/artifacts"
           shopt -s nullglob
-          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.blockmap "$base"/nightly-mac.yml "$base"/mac-arm64-release.json)
-          if [ ${#files[@]} -eq 0 ]; then
+          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-arm64*.blockmap "$base"/mac-arm64-release.json)
+          feeds=("$base"/nightly-mac.yml)
+          if [ ${#files[@]} -eq 0 ] || [ ${#feeds[@]} -eq 0 ]; then
             echo "::error::没找到 macOS 产物，目录内容如下："
             find "$(dirname "$base")" -maxdepth 2 -type f | head -40
             exit 1
           fi
-          printf '上传 %s\n' "${files[@]}"
-          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          # 两个 mac 架构的清单都叫 nightly-mac.yml：作为 Release 资产必须带上架构，否则互相覆盖，
+          # 发布脚本也就分不清拿到的是哪个架构的清单了。服务器上的目录不变。
+          staged="$RUNNER_TEMP/release"
+          mkdir -p "$staged"
+          cp "${feeds[0]}" "$staged/mac-arm64-nightly-mac.yml"
+          printf '上传 %s\n' "${files[@]}" "$staged/mac-arm64-nightly-mac.yml"
+          gh release upload "$RELEASE_TAG" "${files[@]}" "$staged/mac-arm64-nightly-mac.yml" --clobber
 
       - name: 保留打包日志（失败时排查用）
         if: always()
@@ -349,6 +364,165 @@ jobs:
           retention-days: 14
 
       # 凭据文件不进任何产物；runner 是临时的，这里只是保险。
+      - name: 删掉本次生成的设置文件与凭据
+        if: always()
+        run: |
+          rm -f apps/desktop/.env.macos
+          rm -rf "${RUNNER_TEMP:-/tmp}/vibedev-signing"
+
+  # Intel 版：macos-15-intel 是原生 x64 机器（macos-latest / macos-14 是 Apple 芯片）。
+  # 用原生机器而不是在 arm64 上交叉编译，免得原生模块（node-pty 等）装错架构。
+  # 这一步是独立 job：它失败不影响 arm64 和 Windows 出包。
+  macos-x64:
+    name: macOS x64 / Intel（Developer ID 签名 + 公证）
+    needs: prepare
+    runs-on: macos-15-intel
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: 装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 展开签名证书与公证密钥
+        env:
+          CSC_P12_BASE64: ${{ secrets.MACOS_CSC_P12 }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          api_count=0
+          apple_id_count=0
+          for value in "$APPLE_API_KEY_P8_BASE64" "$APPLE_API_KEY_ID" "$APPLE_API_ISSUER"; do
+            if [ -n "$value" ]; then api_count=$((api_count + 1)); fi
+          done
+          for value in "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID"; do
+            if [ -n "$value" ]; then apple_id_count=$((apple_id_count + 1)); fi
+          done
+          if [ "$api_count" -eq 3 ] && [ "$apple_id_count" -eq 0 ]; then
+            notary_auth=api-key
+          elif [ "$apple_id_count" -eq 3 ] && [ "$api_count" -eq 0 ]; then
+            notary_auth=apple-id
+          else
+            echo "::error::公证凭据必须二选一且三项完整：APPLE_API_KEY_P8 / APPLE_API_KEY_ID / APPLE_API_ISSUER，或 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID。请删除另一组 secrets。"
+            exit 1
+          fi
+          work="$RUNNER_TEMP/vibedev-signing"
+          mkdir -p "$work"
+          printf '%s' "$CSC_P12_BASE64" | base64 --decode > "$work/certificate.p12"
+          chmod 600 "$work/certificate.p12"
+          if [ "$notary_auth" = api-key ]; then
+            printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$work/AuthKey.p8"
+            chmod 600 "$work/AuthKey.p8"
+          fi
+          echo "WORK=$work" >> "$GITHUB_ENV"
+          echo "NOTARY_AUTH=$notary_auth" >> "$GITHUB_ENV"
+
+      - name: 写打包设置 .env.macos
+        env:
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
+          CSC_PASSWORD: ${{ secrets.MACOS_CSC_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs'
+          import { parseEnv } from 'node:util'
+          const env = process.env
+          // Preserve password characters through the same parser used by the package entry.
+          const quoteValue = (name, value) => {
+            if (value === undefined || /[\r\n\0]/u.test(value)) throw new Error(`${name} must be a single-line value`)
+            for (const quote of ['"', "'", '`']) {
+              if (value.includes(quote)) continue
+              const line = `${name}=${quote}${value}${quote}`
+              if (parseEnv(line)[name] === value) return line
+            }
+            throw new Error(`${name} cannot be preserved in dotenv; replace its value`)
+          }
+          const settings = {
+            DSH_DESKTOP_APP_ID: 'studio.vibedev.app',
+            DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
+            DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://api.vibedev.studio',
+            DSH_DESKTOP_NPM_REGISTRY: 'https://registry.npmmirror.com',
+            DSH_DESKTOP_MACOS_SIGNING_IDENTITY: env.SIGNING_IDENTITY,
+            DSH_DESKTOP_MACOS_TEAM_ID: env.TEAM_ID,
+            CSC_LINK: `${env.WORK}/certificate.p12`,
+            CSC_KEY_PASSWORD: env.CSC_PASSWORD,
+          }
+          if (env.NOTARY_AUTH === 'api-key') Object.assign(settings, {
+            APPLE_API_KEY: `${env.WORK}/AuthKey.p8`, APPLE_API_KEY_ID: env.APPLE_API_KEY_ID, APPLE_API_ISSUER: env.APPLE_API_ISSUER,
+          })
+          else if (env.NOTARY_AUTH === 'apple-id') Object.assign(settings, {
+            APPLE_ID: env.APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD: env.APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID: env.APPLE_TEAM_ID,
+          })
+          else throw new Error('NOTARY_AUTH must select one validated notarization strategy')
+          writeFileSync('apps/desktop/.env.macos', `${Object.entries(settings).map(([name, value]) => quoteValue(name, value)).join('\n')}\n`, { mode: 0o600 })
+          NODE
+          chmod 600 apps/desktop/.env.macos
+
+      - name: 先做配置与工具链校验（不导入证书）
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: pnpm --dir apps/desktop run package:mac:x64 --check --build-version "$PACKAGE_VERSION"
+
+      - name: 打包（签名 + 公证 + 装订）
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: pnpm --dir apps/desktop run package:mac:x64 --build-version "$PACKAGE_VERSION"
+
+      - name: 上传到草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          base="apps/desktop/.desktop-build/targets/mac-x64/artifacts"
+          shopt -s nullglob
+          files=("$base"/vibedev-"$PACKAGE_VERSION"-mac-x64*.dmg "$base"/vibedev-"$PACKAGE_VERSION"-mac-x64*.zip "$base"/vibedev-"$PACKAGE_VERSION"-mac-x64*.blockmap "$base"/mac-x64-release.json)
+          feeds=("$base"/nightly-mac.yml)
+          if [ ${#files[@]} -eq 0 ] || [ ${#feeds[@]} -eq 0 ]; then
+            echo "::error::没找到 macOS x64 产物，目录内容如下："
+            find "$(dirname "$base")" -maxdepth 2 -type f | head -40
+            exit 1
+          fi
+          staged="$RUNNER_TEMP/release"
+          mkdir -p "$staged"
+          cp "${feeds[0]}" "$staged/mac-x64-nightly-mac.yml"
+          printf '上传 %s\n' "${files[@]}" "$staged/mac-x64-nightly-mac.yml"
+          gh release upload "$RELEASE_TAG" "${files[@]}" "$staged/mac-x64-nightly-mac.yml" --clobber
+
+      - name: 保留打包日志（失败时排查用）
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-x64-package-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: 删掉本次生成的设置文件与凭据
         if: always()
         run: |

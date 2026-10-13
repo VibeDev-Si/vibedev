@@ -4,6 +4,20 @@
 
 对应的 workflow：`.github/workflows/vibedev-release.yml`
 
+一次打 tag 会跑三个打包 job（互不影响，任一失败不阻塞另外两个）：
+
+| job | 机器 | 产物 |
+|---|---|---|
+| `windows` | `windows-latest` | 未签名的 x64 安装包 + 更新清单 |
+| `macos` | `macos-14`（Apple 芯片） | 签名 + 公证的 arm64 DMG/ZIP |
+| `macos-x64` | `macos-15-intel`（原生 Intel） | 签名 + 公证的 x64 DMG/ZIP |
+
+> ⚠️ **更新清单在 Release 里的名字带目标名**：两个 mac 架构的清单都叫 `nightly-mac.yml`，
+> 同名上传会互相覆盖，发布脚本也就分不清拿到的是哪个架构。所以三个 job 分别上传
+> `win-x64-nightly.yml`、`mac-arm64-nightly-mac.yml`、`mac-x64-nightly-mac.yml`。
+> 服务器上的目录不变（仍是 `dsh-desk/feeds/<target>/`）。`publish-release.ts` 优先找带目标名的，
+> 找不到才退回原名——20261013.4 之前发布的 Release 里只有原名，仍然可用。
+
 ## 一次性配置
 
 ### 1. 仓库设为公开
@@ -132,3 +146,7 @@ macOS 把 `upload:release:win:x64` 换成 `upload:release:mac:arm64`（Intel 是
 - 托管 runner 上 `pnpm install --frozen-lockfile` 会从 raw.githubusercontent.com 拉内置的账号插件包，
   该仓库现在是公开的，正常。
 - 未签名的 Windows 包自动更新正常；已签名的 macOS 包自动更新理论上正常（Electron 的 Squirrel.Mac 需要签名，我们有签名）。
+- **macOS Intel(x64) 这条路一次都没跑过**：`package:mac:x64` 命令、上传/发布脚本都支持（固定下载名是
+  `dsh-latest-macos-x64.dmg`），但 fork 里从未真正构建过。第一次跑要看：`--check` 是否通过、原生模块能否在
+  Intel 机器上装好、公证是否成功。这个 job 是独立的，它失败不影响 arm64 和 Windows 出包。
+- 苹果的 Intel 机器已经进入退场期（macOS 26 之后不再支持），但存量机器还有，所以这一版先出着。

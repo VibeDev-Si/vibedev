@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { load } from 'js-yaml'
-import { planReleasePublish, publishReleasePlan, releaseVersionFromTag } from '../scripts/publish-release.ts'
+import { feedAssetFor, planReleasePublish, publishReleasePlan, releaseVersionFromTag } from '../scripts/publish-release.ts'
 import type { GitHubAsset, ServerRemote } from '../scripts/upload-server.ts'
 
 const PRODUCT = '0.2.1-alpha.2'
@@ -158,6 +158,25 @@ function fakeServer() {
   }
   return { remote, hashes, fetched, copied, renamed }
 }
+
+describe('feedAssetFor', () => {
+  const macFeed = asset('mac-x64-nightly-mac.yml')
+  const armFeed = asset('mac-arm64-nightly-mac.yml')
+
+  it('picks the feed of the architecture being published from a two-architecture release', () => {
+    expect(feedAssetFor([armFeed, macFeed], 'mac-x64', 'nightly-mac.yml')).toBe(macFeed)
+    expect(feedAssetFor([armFeed, macFeed], 'mac-arm64', 'nightly-mac.yml')).toBe(armFeed)
+  })
+
+  it('accepts the plain feed name of a release published before the split', () => {
+    const plain = asset('nightly.yml')
+    expect(feedAssetFor([plain], 'win-x64', 'nightly.yml')).toBe(plain)
+  })
+
+  it('reports nothing when the release holds neither name', () => {
+    expect(feedAssetFor([asset('vibedev-1-win-x64.exe')], 'win-x64', 'nightly.yml')).toBeUndefined()
+  })
+})
 
 describe('publishReleasePlan', () => {
   const plan = () => planReleasePublish({

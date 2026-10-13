@@ -278,6 +278,24 @@ export async function publishReleasePlan(plan: ReleasePublishPlan, options: {
 }
 
 /**
+ * The feed asset of one target inside a release.
+ *
+ * Both macOS architectures build a feed named `nightly-mac.yml`, so each job attaches its copy under
+ * `<target>-<feed name>`; taking the plain name would silently hand an Intel user an Apple-silicon
+ * payload. Releases published before 20261013.4 hold only the plain name, so that stays accepted.
+ * @param assets - the release's assets.
+ * @param target - the target being published.
+ * @param metadataFilename - the feed name electron-builder wrote.
+ * @returns the asset to rewrite, or undefined when the release holds neither name.
+ */
+export function feedAssetFor(
+  assets: readonly GitHubAsset[], target: DesktopPackageTargetName, metadataFilename: string,
+): GitHubAsset | undefined {
+  return assets.find(asset => asset.name === `${target}-${metadataFilename}`)
+    ?? assets.find(asset => asset.name === metadataFilename)
+}
+
+/**
  * Publish a release's installers and feed to the download server, then read every key back through nginx.
  * @param args - CLI arguments: `--tag`, `--target`, `--ssh`, `--identity`, `--known-hosts`, `--root`,
  *   optional `--repo`, `--port`, `--environment`, `--latest`, `--dry-run`.
@@ -308,9 +326,9 @@ export async function publishReleaseToServer(args: string[]): Promise<void> {
   const release = await githubRelease({ repo, tag, token })
   const version = releaseVersionFromTag(tag, productVersion)
   const metadataFilename = desktopUpdateMetadataFilename(version, TARGET_PLATFORM[target].platform)
-  const feed = release.assets.find(asset => asset.name === metadataFilename)
+  const feed = feedAssetFor(release.assets, target, metadataFilename)
   if (feed === undefined) {
-    throw new Error(`desktop release publish: release ${tag} has no ${metadataFilename} to rewrite; it holds ${
+    throw new Error(`desktop release publish: release ${tag} has no ${target}-${metadataFilename} (nor ${metadataFilename}) to rewrite; it holds ${
       release.assets.map(asset => asset.name).join(', ')}`)
   }
   const feedUrl = await githubAssetDownloadUrl({ repo, token }, feed.id)
