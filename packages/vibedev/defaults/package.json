@@ -21,7 +21,7 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/9d8a96701f865ba9c1950410fa2ac77424e03de3/bundled/vibedev-si-dsh-vibedev-0.3.3.tgz"
+    "@vibedev-si/dsh-vibedev": "https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/dca322d3772ba1ee14aabd44cdf7b84330b45023/bundled/vibedev-si-dsh-vibedev-0.3.4.tgz"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"

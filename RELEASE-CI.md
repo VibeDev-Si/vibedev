@@ -100,6 +100,16 @@ git push origin desktop-v0.2.1-alpha.2.20261013.3
 
 想重跑：同一页点 Re-run，或手动触发这个 workflow 并填已有的 tag。
 
+### 内置插件必须是 npm 最新版
+
+`prepare` job 会拒绝发版（不建草稿 Release、不打包）：只要 tag 里内置的 VibeDev 插件（账号插件 `@vibedev-si/dsh-vibedev`、生态中心 `@vibedev-si/dsh-ecosystem`）有一个不是 npm latest，或在 `apps/cli/package.json`、`packages/vibedev/defaults/package.json`、`packages/vibedev/web-defaults/package.json` 里版本不一致，它就会失败。比 npm latest 新也算失败（npm 上还没有）。打 tag 前先在本地跑 `pnpm --dir apps/desktop run check:bundled-plugins`，每个包一行，全是 `OK` 才行。
+
+升版本：先把插件发到 npm，再改 pin。
+
+- 生态中心：在 `apps/cli/package.json` 和 `packages/vibedev/web-defaults/package.json` 里写精确版本（如 `0.1.15`）。
+- 账号插件：用 VibeDev-Si/dsh-vibedev 仓库 `bundled/` 下的归档，pin 写成 `https://raw.githubusercontent.com/VibeDev-Si/dsh-vibedev/<完整 40 位 commit>/bundled/vibedev-si-dsh-vibedev-<版本>.tgz`（`git ls-remote https://github.com/VibeDev-Si/dsh-vibedev.git refs/heads/main` 取 commit），同时改 `apps/cli/package.json` 和 `packages/vibedev/defaults/package.json`。先确认这个归档的 sha512 等于 npm 的 `dist.integrity`（字节必须相同），再把 `apps/desktop/resources/bundled-account/` 里的旧 tgz 换成同一个文件（打包时会对照 pin 和 lockfile 校验它）。
+- 最后跑 `pnpm install --lockfile-only`，确认 `pnpm-lock.yaml` 只改了这个插件的条目，再跑 `pnpm install --frozen-lockfile`。
+
 ## 推下载服务器
 
 CI 只负责打包和建 Release。你在页面上点了 **Publish release** 之后，用 `publish-release.ts`
