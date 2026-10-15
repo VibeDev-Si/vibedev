@@ -121,15 +121,15 @@ describe('locked built-in account archive', () => {
       const available = new Map([[name, { tarball, manifest: { name, version } }]])
       const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`
       const lock = JSON.stringify({ packages: { [`${name}@${spec}`]: { version, resolution: { tarball: spec, integrity } } } })
-      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).not.toThrow()
-      expect(() => assertPinnedDesktopAccountPackage(new Map(), spec, lock)).toThrow(/missing/u)
-      expect(() => assertPinnedDesktopAccountPackage(available, spec.replace('a'.repeat(40), 'main'), lock)).toThrow(/immutable/u)
-      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock.replace(version, '0.2.0'))).toThrow(/lockfile/u)
+      expect(() => { assertPinnedDesktopAccountPackage(available, spec, lock) }).not.toThrow()
+      expect(() => { assertPinnedDesktopAccountPackage(new Map(), spec, lock) }).toThrow(/missing/u)
+      expect(() => { assertPinnedDesktopAccountPackage(available, spec.replace('a'.repeat(40), 'main'), lock) }).toThrow(/immutable/u)
+      expect(() => { assertPinnedDesktopAccountPackage(available, spec, lock.replace(version, '0.2.0')) }).toThrow(/lockfile/u)
       available.get(name)!.manifest.version = '0.2.0'
-      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).toThrow(/identity/u)
+      expect(() => { assertPinnedDesktopAccountPackage(available, spec, lock) }).toThrow(/identity/u)
       available.get(name)!.manifest.version = version
       writeFileSync(tarball, 'tampered fixture archive')
-      expect(() => assertPinnedDesktopAccountPackage(available, spec, lock)).toThrow(/integrity/u)
+      expect(() => { assertPinnedDesktopAccountPackage(available, spec, lock) }).toThrow(/integrity/u)
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 })
