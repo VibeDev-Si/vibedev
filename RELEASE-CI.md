@@ -178,7 +178,7 @@ macOS 把 `upload:release:win:x64` 换成 `upload:release:mac:arm64`（Intel 是
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| macOS job 在「打包」最后一步失败：`Failed to staple your application with code: 68` + `Code=-1005 "The network connection was lost."` | Apple 的装订服务偶发网络中断（同一时间窗里另一个 mac job 是成功的，所以不是我们的问题） | **重跑失败的 job**：`gh run rerun <run-id> --failed`。已完成 job 的产物不会丢 |
+| macOS job 在「打包」最后一步失败：`Failed to staple your application with code: 68` + `Code=-1005 "The network connection was lost."` | 已公证产物访问 Apple 票据服务时连接中断 | 脚本仅在现有产物上有限重试装订，签名与票据验收继续执行，详见[打包说明](apps/desktop/README.zh.md#upload-updates)。预算耗尽仍失败，保留诊断后可运行 `gh run rerun <run-id> --failed`；已完成 job 的产物保留 |
 | 草稿 Release 的说明里 `##` 标题没了 | `git tag -a -F` 默认 cleanup 会把 `#` 开头的行当注释删掉 | 说明里分段用 **加粗**；非要 `#` 就加 `--cleanup=verbatim`（见「日常发版」一节） |
 | 两个 mac 架构的更新清单在 Release 里互相覆盖 | 两个架构的清单都叫 `nightly-mac.yml` | 各 job 上传时改名为 `<target>-<清单名>`，发布脚本优先取带目标名的（见「推下载服务器」一节） |
 | Windows 旧装反复下载却装不上 | 换过 appId（见上一节） | 先卸载再安装；feed 在旧装清理干净前不推 |
