@@ -486,6 +486,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@vibedev/dsh-client-brand` | no | VibeDev brand occupants for the Web client's sidebar and blank-session hero slots |
+| `@vibedev/dsh-web-defaults` | no | VibeDev defaults over dsh-web-app: no product analytics to DeepSeek, no DeepSeek brand, and a Web port that never collides with an installed DeepSeek Harness |
 
 ## web
 
