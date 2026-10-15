@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { resolveMacOSSigningEnvironment } from './desktop-release-environment.mjs'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
+import { isMacOSTicketConnectionLost, macOSTicketRetryDelays } from './macos-ticket-recovery.mjs'
 
 /**
  * Reject signature metadata that does not name the company release authority and team.
@@ -40,24 +41,34 @@ export function assertMacOSRuntimeSignatureDetails(details, expected) {
 
 /**
  * Execute one Apple release tool and return its diagnostic streams.
+ * Ticket validation alone recovers connection loss within a finite synchronous budget; other failures throw.
  * @param {string} command - Absolute executable path.
  * @param {readonly string[]} args - Tool arguments.
  * @param {string} label - Stable diagnostic name.
  * @returns {string} Combined stdout and stderr.
  */
 function runAppleCommand(command, args, label) {
-  const result = spawnSync(command, args, { encoding: 'utf8' })
-  if (result.error !== undefined) {
-    throw new Error(`desktop macOS signing: could not execute ${label}: ${result.error.message}`)
+  const ticketValidation = command === '/usr/bin/xcrun' && args[0] === 'stapler' && args[1] === 'validate'
+  for (let attempt = 0; ; attempt++) {
+    const result = spawnSync(command, args, { encoding: 'utf8', ...ticketValidation ? { timeout: 120_000 } : {} })
+    if (result.error !== undefined) {
+      throw new Error(`desktop macOS signing: could not execute ${label}: ${result.error.message}`)
+    }
+    if (result.signal !== null) {
+      throw new Error(`desktop macOS signing: ${label} was terminated by ${result.signal}`)
+    }
+    if (result.status !== 0) {
+      const diagnostic = `${result.stdout}\n${result.stderr}`.trim()
+      const milliseconds = macOSTicketRetryDelays[attempt]
+      if (ticketValidation && isMacOSTicketConnectionLost(result.status, diagnostic) && milliseconds !== undefined) {
+        console.warn(`desktop macOS signing: ${label} ticket connection lost; retry ${attempt + 1}/${macOSTicketRetryDelays.length} in ${milliseconds}ms`)
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds)
+        continue
+      }
+      throw new Error(`desktop macOS signing: ${label} exited with ${String(result.status)}${diagnostic === '' ? '' : `: ${diagnostic}`}`)
+    }
+    return `${result.stdout}${result.stderr}`
   }
-  if (result.signal !== null) {
-    throw new Error(`desktop macOS signing: ${label} was terminated by ${result.signal}`)
-  }
-  if (result.status !== 0) {
-    const diagnostic = `${result.stdout}${result.stderr}`.trim()
-    throw new Error(`desktop macOS signing: ${label} exited with ${String(result.status)}${diagnostic === '' ? '' : `: ${diagnostic}`}`)
-  }
-  return `${result.stdout}${result.stderr}`
 }
 
 /**

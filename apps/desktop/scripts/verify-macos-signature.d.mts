@@ -1,3 +1,4 @@
+/** App/DMG ticket checks synchronously recover bounded connection loss; signatures and other failures remain fatal. */
 import type { MacOSSigningEnvironment } from './desktop-release-environment.mjs'
 
 /**

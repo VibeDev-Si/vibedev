@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { notarize } from '@electron/notarize'
 import { packagingStep } from './packaging-step.mjs'
+import { isMacOSTicketConnectionLost, macOSTicketRetryDelays } from './macos-ticket-recovery.mjs'
 
 const execute = promisify(execFile)
-const stapleRetryDelays = [10_000, 30_000, 60_000, 120_000]
 
 /** @param {unknown} error External command or library failure. @returns {string} Available diagnostics. */
 function diagnostics(error) {
@@ -31,7 +31,7 @@ function stapleFailure(error, directCommand) {
   if (directCommand) {
     if (error === null || typeof error !== 'object' || !('code' in error) || error.code !== 68) return
   } else if (!/^Failed to staple your application with code: 68\b/u.test(text)) return
-  if (/\bNSURLErrorDomain Code=-1005\b/u.test(text)) return 'connection-lost'
+  if (isMacOSTicketConnectionLost(68, text)) return 'connection-lost'
 }
 
 /** @param {string} appPath Signed App or DMG. @returns {Promise<void>} Successful ticket stapling. */
@@ -60,15 +60,15 @@ export async function notarizeMacOS(options, operations = {}) {
     } catch (error) {
       if (stapleFailure(error, false) !== 'connection-lost') throw error
     }
-    for (const [index, milliseconds] of stapleRetryDelays.entries()) {
-      console.warn(`desktop macOS notarization: ${basename(options.appPath)} ticket connection lost; staple retry ${index + 1}/${stapleRetryDelays.length} in ${milliseconds}ms`)
+    for (const [index, milliseconds] of macOSTicketRetryDelays.entries()) {
+      console.warn(`desktop macOS notarization: ${basename(options.appPath)} ticket connection lost; staple retry ${index + 1}/${macOSTicketRetryDelays.length} in ${milliseconds}ms`)
       await wait(milliseconds)
       try {
         await stapleArtifact(options.appPath)
         return
       } catch (error) {
         if (stapleFailure(error, true) !== 'connection-lost') throw error
-        if (index === stapleRetryDelays.length - 1) {
+        if (index === macOSTicketRetryDelays.length - 1) {
           throw new Error(`desktop macOS notarization: ticket stapling recovery exhausted for ${basename(options.appPath)}\n${diagnostics(error)}`, { cause: error })
         }
       }

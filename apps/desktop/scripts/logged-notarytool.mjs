@@ -22,7 +22,7 @@ async function execute(args) {
 }
 
 /**
- * Return only the final JSON to electron-notarize, which owns acceptance checks and stapling retries.
+ * Return only the final JSON to electron-notarize for acceptance checks and initial stapling.
  * @param {readonly string[]} args Arguments supplied by the pinned electron-notarize library.
  * @param {string | undefined} directory Existing packaging journal.
  * @param {(args: readonly string[]) => Promise<string>} invoke Apple command executor.
